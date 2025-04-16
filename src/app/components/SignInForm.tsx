@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { signIn, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import {
@@ -9,7 +9,6 @@ import {
   InputGroup,
   InputRightElement,
   Stack,
-  Text,
   useToast,
 } from "@chakra-ui/react";
 import { Input } from "@chakra-ui/react";

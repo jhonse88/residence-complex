@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   Button,
   FormControl,
@@ -16,11 +18,21 @@ import {
   Flex,
   Text,
   Textarea,
+  Badge,
+  HStack,
+  Icon,
+  useColorModeValue,
 } from "@chakra-ui/react";
+import {
+  HiChevronLeft,
+  HiChevronRight,
+  HiStar,
+  HiOutlineStar,
+} from "react-icons/hi";
+import { useState, useEffect } from "react";
 import axios from "axios";
-import { ChangeEvent, FC, useEffect, useState } from "react";
-import { HiChevronLeft, HiChevronRight } from "react-icons/hi";
 import Joi from "joi";
+import EvaluationModal from "./EvaluationModal";
 
 interface ServiceRequest {
   Id: number;
@@ -32,18 +44,23 @@ interface ServiceRequest {
   };
 }
 
-interface Props {
-  isOpen: boolean;
-  onClose: () => void;
-  supplierId: number;
-  supplierName: string;
+interface Evaluation {
+  Id: number;
+  Qualification: number;
+  Comments: string;
+  EvaluationDate: string;
 }
 
-const ServiceRequestModal: FC<Props> = ({
+const ServiceRequestModal = ({
   isOpen,
   onClose,
   supplierId,
   supplierName,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  supplierId: number;
+  supplierName: string;
 }) => {
   const toast = useToast();
   const [errors, setErrors] = useState<any>({});
@@ -54,6 +71,10 @@ const ServiceRequestModal: FC<Props> = ({
   const [isCreating, setIsCreating] = useState(false);
   const [hasNext, setHasNext] = useState(false);
   const [hasPrev, setHasPrev] = useState(false);
+  const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
+  const [isEvaluationModalOpen, setIsEvaluationModalOpen] = useState(false);
+
+  const starColor = useColorModeValue("yellow.400", "yellow.300");
 
   const requestSchema = Joi.object({
     ApplicationDate: Joi.date().iso().required().messages({
@@ -68,7 +89,6 @@ const ServiceRequestModal: FC<Props> = ({
     IdSuppliers: Joi.number().required(),
   });
 
-  // Función para formatear a datetime-local
   const formatToDatetimeLocal = (isoString: string) => {
     if (!isoString) return "";
     const date = new Date(isoString);
@@ -80,7 +100,6 @@ const ServiceRequestModal: FC<Props> = ({
     return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
-  // Función para convertir de datetime-local a ISO
   const parseDatetimeLocal = (datetimeLocal: string) => {
     if (!datetimeLocal) return "";
     return new Date(datetimeLocal).toISOString();
@@ -118,7 +137,6 @@ const ServiceRequestModal: FC<Props> = ({
 
       const response = await axios.get("/api/serviceRequests", { params });
 
-      // Verificar si hay más registros
       const checkNeighbors = async () => {
         try {
           const nextRes = await axios.get("/api/serviceRequests", {
@@ -146,9 +164,12 @@ const ServiceRequestModal: FC<Props> = ({
 
       if (response.data?.Id) {
         await checkNeighbors();
+        // Obtener la evaluación después de cargar la solicitud
+        await fetchEvaluation(response.data.Id);
       } else {
         setHasNext(false);
         setHasPrev(false);
+        setEvaluation(null);
       }
 
       setCurrentRequest(response.data);
@@ -168,6 +189,18 @@ const ServiceRequestModal: FC<Props> = ({
     }
   };
 
+  const fetchEvaluation = async (serviceRequestId: number) => {
+    try {
+      const response = await axios.get(
+        `/api/evaluations?serviceRequestId=${serviceRequestId}`
+      );
+      setEvaluation(response.data);
+    } catch (error) {
+      console.error("Error fetching evaluation:", error);
+      setEvaluation(null);
+    }
+  };
+
   const createNewRequest = () => {
     setCurrentRequest({
       Id: 0,
@@ -178,6 +211,7 @@ const ServiceRequestModal: FC<Props> = ({
     setIsCreating(true);
     setHasNext(false);
     setHasPrev(false);
+    setEvaluation(null);
   };
 
   const saveRequest = async () => {
@@ -195,9 +229,7 @@ const ServiceRequestModal: FC<Props> = ({
 
     try {
       setIsLoading(true);
-      const method = currentRequest.Id ? "PUT" : "POST";
       const url = "/api/serviceRequests";
-
       const response = currentRequest.Id
         ? await axios.put(url, currentRequest)
         : await axios.post(url, currentRequest);
@@ -210,7 +242,6 @@ const ServiceRequestModal: FC<Props> = ({
         isClosable: true,
       });
 
-      // Recargar la última solicitud (que será la recién creada/actualizada)
       await fetchRequest("last");
     } catch (error) {
       toast({
@@ -239,6 +270,12 @@ const ServiceRequestModal: FC<Props> = ({
     });
   };
 
+  const handleEvaluationSaved = () => {
+    if (currentRequest?.Id) {
+      fetchEvaluation(currentRequest.Id);
+    }
+  };
+
   useEffect(() => {
     if (isOpen) {
       fetchRequest("last");
@@ -247,100 +284,169 @@ const ServiceRequestModal: FC<Props> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, supplierId]);
 
+  const RatingDisplay = () => (
+    <HStack spacing={1} align="center">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <Icon
+          key={star}
+          as={star <= (evaluation?.Qualification || 0) ? HiStar : HiOutlineStar}
+          color={
+            star <= (evaluation?.Qualification || 0) ? starColor : "gray.300"
+          }
+          boxSize={4}
+        />
+      ))}
+      {evaluation?.Qualification && (
+        <Badge colorScheme="blue" ml={1}>
+          {evaluation.Qualification}/5
+        </Badge>
+      )}
+    </HStack>
+  );
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} isCentered size="xl">
-      <ModalOverlay />
-      <ModalContent>
-        <ModalHeader>
-          <Text fontSize="xl">Solicitud de servicio</Text>
-          <Text fontSize="sm" color="gray.500">
-            Proveedor: {supplierName}
-          </Text>
-        </ModalHeader>
-        <ModalCloseButton />
-        <ModalBody>
-          {isLoading ? (
-            <Flex justify="center" align="center" minH="200px">
-              <Text>Cargando...</Text>
+    <>
+      <Modal isOpen={isOpen} onClose={onClose} isCentered size="xl">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            <Flex direction="column">
+              <Text fontSize="xl">Solicitud de servicio</Text>
+              <Text fontSize="sm" color="gray.500">
+                Proveedor: {supplierName}
+              </Text>
+              {evaluation && (
+                <Flex align="center" mt={2}>
+                  <Text fontSize="sm" mr={2}>
+                    Calificación:
+                  </Text>
+                  <RatingDisplay />
+                </Flex>
+              )}
             </Flex>
-          ) : (
-            <>
-              <Flex justify="flex-start" mb={2}>
-                <Button
-                  colorScheme="teal"
-                  onClick={createNewRequest}
-                  isDisabled={isLoading}
-                  size={'sm'}
-                >
-                  Nueva Solicitud
-                </Button>
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            {isLoading ? (
+              <Flex justify="center" align="center" minH="200px">
+                <Text>Cargando...</Text>
               </Flex>
+            ) : (
+              <>
+                <Flex justify="space-between" mb={4}>
+                  <Button
+                    colorScheme="teal"
+                    onClick={createNewRequest}
+                    isDisabled={isLoading}
+                    size="sm"
+                  >
+                    Nueva Solicitud
+                  </Button>
+                  {currentRequest?.Id ? (
+                    <Button
+                      colorScheme="blue"
+                      onClick={() => setIsEvaluationModalOpen(true)}
+                      isDisabled={isLoading}
+                      size="sm"
+                      variant={evaluation ? "outline" : "solid"}
+                    >
+                      {evaluation
+                        ? "Ver/Editar Calificación"
+                        : "Calificar Servicio"}
+                    </Button>
+                  ): null}
+                </Flex>
 
-              <SimpleGrid columns={1} spacingY="20px">
-                <FormControl isInvalid={!!errors.ApplicationDate} isRequired>
-                  <FormLabel htmlFor="ApplicationDate">Fecha y Hora</FormLabel>
-                  <Input
-                    id="ApplicationDate"
-                    name="ApplicationDate"
-                    value={currentRequest?.ApplicationDate ? formatToDatetimeLocal(currentRequest.ApplicationDate) : ""}
-                    onChange={handleChange}
-                    focusBorderColor="lime"
-                    variant="filled"
-                    type="datetime-local"
-                  />
-                  <FormErrorMessage>{errors.ApplicationDate}</FormErrorMessage>
-                </FormControl>
+                <SimpleGrid columns={1} spacingY={4}>
+                  <FormControl isInvalid={!!errors.ApplicationDate} isRequired>
+                    <FormLabel fontSize="sm">Fecha y Hora</FormLabel>
+                    <Input
+                      name="ApplicationDate"
+                      value={
+                        currentRequest?.ApplicationDate
+                          ? formatToDatetimeLocal(
+                              currentRequest.ApplicationDate
+                            )
+                          : ""
+                      }
+                      onChange={handleChange}
+                      type="datetime-local"
+                      size="sm"
+                    />
+                    <FormErrorMessage fontSize="xs">
+                      {errors.ApplicationDate}
+                    </FormErrorMessage>
+                  </FormControl>
 
-                <FormControl isInvalid={!!errors.Description} isRequired>
-                  <FormLabel htmlFor="Description">Descripción</FormLabel>
-                  <Textarea
-                    id="Description"
-                    name="Description"
-                    value={currentRequest?.Description || ""}
-                    onChange={handleChange}
-                    focusBorderColor="lime"
-                    variant="filled"
-                    rows={4}
-                  />
-                  <FormErrorMessage>{errors.Description}</FormErrorMessage>
-                </FormControl>
-              </SimpleGrid>
+                  <FormControl isInvalid={!!errors.Description} isRequired>
+                    <FormLabel fontSize="sm">Descripción</FormLabel>
+                    <Textarea
+                      name="Description"
+                      value={currentRequest?.Description || ""}
+                      onChange={handleChange}
+                      size="sm"
+                      rows={4}
+                    />
+                    <FormErrorMessage fontSize="xs">
+                      {errors.Description}
+                    </FormErrorMessage>
+                  </FormControl>
+                </SimpleGrid>
 
-              <Flex justify="space-between" mt={6}>
-                <Button
-                  leftIcon={<HiChevronLeft />}
-                  onClick={() => fetchRequest("prev")}
-                  isDisabled={!hasPrev || isLoading || isCreating}
-                >
-                  Anterior
-                </Button>
+                {currentRequest?.Id ? (
+                  <Flex justify="space-between" mt={6}>
+                    <Button
+                      leftIcon={<Icon as={HiChevronLeft} />}
+                      onClick={() => fetchRequest("prev")}
+                      isDisabled={!hasPrev || isLoading || isCreating}
+                      size="sm"
+                      variant="outline"
+                    >
+                      Anterior
+                    </Button>
+                    <Button
+                      rightIcon={<Icon as={HiChevronRight} />}
+                      onClick={() => fetchRequest("next")}
+                      isDisabled={!hasNext || isLoading || isCreating}
+                      size="sm"
+                      variant="outline"
+                    >
+                      Siguiente
+                    </Button>
+                  </Flex>
+                ): null}
+              </>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button onClick={onClose} mr={3} size="sm" variant="ghost">
+              Cerrar
+            </Button>
+            <Button
+              colorScheme="teal"
+              onClick={saveRequest}
+              isLoading={isLoading}
+              isDisabled={!currentRequest}
+              size="sm"
+            >
+              Guardar Solicitud
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
-                <Button
-                  rightIcon={<HiChevronRight />}
-                  onClick={() => fetchRequest("next")}
-                  isDisabled={!hasNext || isLoading || isCreating}
-                >
-                  Siguiente
-                </Button>
-              </Flex>
-            </>
-          )}
-        </ModalBody>
-        <ModalFooter>
-          <Button colorScheme="gray" mr={3} onClick={onClose}>
-            Cerrar
-          </Button>
-          <Button
-            colorScheme="teal"
-            onClick={saveRequest}
-            isLoading={isLoading}
-            isDisabled={!currentRequest}
-          >
-            Guardar
-          </Button>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
+      {currentRequest?.Id && (
+        <EvaluationModal
+          isOpen={isEvaluationModalOpen}
+          onClose={() => setIsEvaluationModalOpen(false)}
+          serviceRequestId={currentRequest.Id}
+          supplierId={supplierId}
+          currentRating={evaluation?.Qualification}
+          currentComments={evaluation?.Comments}
+          onEvaluationSaved={handleEvaluationSaved}
+        />
+      )}
+    </>
   );
 };
 
