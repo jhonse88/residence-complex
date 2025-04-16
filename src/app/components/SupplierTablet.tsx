@@ -19,13 +19,14 @@ import {
   IconButton,
   Text,
 } from "@chakra-ui/react";
-import { HiTrash, HiPencil, HiPlus } from "react-icons/hi";
+import { HiTrash, HiPencil, HiPlus, HiClipboardList } from "react-icons/hi";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Pagination from "./SupplierComponents/Pagination";
 import { Supplier } from "../types/api";
 import CreateEditSupplierModal from "./SupplierComponents/CreateEditSupplierModal";
 import DeleteSupplierModal from "./SupplierComponents/DeleteSupplierModal";
+import ServiceRequestModal from "./SupplierComponents/ServiceRequestModal";
 
 export default function SupplierTable() {
   const { status } = useSession();
@@ -57,6 +58,13 @@ export default function SupplierTable() {
   const [firstIndex, setFirstIndex] = useState(0);
   const [lastIndex, setLastIndex] = useState(supplierPerPage);
   const [searchTerm, setSearchTerm] = useState("");
+
+  const [selectedSupplierId, setSelectedSupplierId] = useState<number>(0);
+  const {
+    isOpen: isOpenServiceRequestModal,
+    onOpen: onOpenServiceRequestModal,
+    onClose: onCloseServiceRequestModal,
+  } = useDisclosure();
 
   const GetSuppliers = async (startIndex: number = 0, endIndex: number = 7) => {
     try {
@@ -121,7 +129,10 @@ export default function SupplierTable() {
     <>
       <Box px={10}>
         <Box pb={10}>
-        <Text fontSize='4xl' textAlign={'center'}> Provedores</Text>
+          <Text fontSize="4xl" textAlign={"center"}>
+            {" "}
+            Provedores
+          </Text>
           <Input
             placeholder="Buscar proveedores"
             variant="filled"
@@ -182,6 +193,21 @@ export default function SupplierTable() {
                           bg="transparent"
                           onClick={() => EditSupplier(supplier.Id)}
                           disabled={!supplier.State}
+                        />
+                        <IconButton
+                          variant="ghost"
+                          colorScheme="blue"
+                          aria-label="Solicitudes"
+                          fontSize="20px"
+                          icon={<HiClipboardList />}
+                          _hover={{ bg: "transparent" }}
+                          _active={{ bg: "transparent" }}
+                          border="none"
+                          bg="transparent"
+                          onClick={() => {
+                            setSelectedSupplierId(supplier.Id);
+                            onOpenServiceRequestModal();
+                          }}
                         />
                       </Flex>
                     </Td>
@@ -244,6 +270,12 @@ export default function SupplierTable() {
         setSupplier={setSupplier}
         ResetSupplier={ResetSupplier}
         suppliers={suppliers}
+      />
+
+      <ServiceRequestModal
+        isOpen={isOpenServiceRequestModal}
+        onClose={onCloseServiceRequestModal}
+        supplierId={selectedSupplierId}
       />
     </>
   );
