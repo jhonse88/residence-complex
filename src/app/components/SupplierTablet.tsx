@@ -60,6 +60,8 @@ export default function SupplierTable() {
   const [searchTerm, setSearchTerm] = useState("");
 
   const [selectedSupplierId, setSelectedSupplierId] = useState<number>(0);
+  const [selectedSupplierName, setSelectedSupplierName] = useState<string>('');
+
   const {
     isOpen: isOpenServiceRequestModal,
     onOpen: onOpenServiceRequestModal,
@@ -206,6 +208,7 @@ export default function SupplierTable() {
                           bg="transparent"
                           onClick={() => {
                             setSelectedSupplierId(supplier.Id);
+                            setSelectedSupplierName(supplier.Name);
                             onOpenServiceRequestModal();
                           }}
                         />
@@ -276,6 +279,7 @@ export default function SupplierTable() {
         isOpen={isOpenServiceRequestModal}
         onClose={onCloseServiceRequestModal}
         supplierId={selectedSupplierId}
+        supplierName={selectedSupplierName}
       />
     </>
   );
