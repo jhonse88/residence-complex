@@ -17,7 +17,7 @@ import {
   CardBody,
 } from "@chakra-ui/react";
 import { HiArrowSmDown, HiUserAdd } from "react-icons/hi";
-import { HiArrowRightOnRectangle, HiDocumentText } from "react-icons/hi2";
+import { HiArrowRightOnRectangle } from "react-icons/hi2";
 import { VscSignIn } from "react-icons/vsc";
 import { FaUserInjured } from "react-icons/fa";
 
@@ -45,21 +45,13 @@ export default async function Navbar() {
                     Interoperabilidad
                   </MenuButton>
                   <MenuList>
-                    <Link href="/tablets/PatientTablet">
+                    <Link href="/tablets/SupplierTablet">
                       <MenuItem>
                         <FaUserInjured />
                         <Box px={2} />
-                        Paciente
+                        Provedores
                       </MenuItem>
                     </Link>
-                    <Link href="/tablets/OrderCreate">
-                      <MenuItem>
-                        <HiDocumentText />
-                        <Box px={2} />
-                        Ordenes
-                      </MenuItem>
-                    </Link>
-                    <MenuItem>Resultado</MenuItem>
                   </MenuList>
                 </Menu>
                 <Spacer />

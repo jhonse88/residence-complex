@@ -1,30 +1,29 @@
-/* eslint-disable react-hooks/rules-of-hooks */
 "use client";
 import { Box, Button, Center } from "@chakra-ui/react";
 import axios from "axios";
 import { FC, useEffect, useState } from "react";
 import { HiArrowNarrowLeft, HiArrowNarrowRight } from "react-icons/hi";
 import React from "react";
-import { Patient } from "@prisma/client";
+import { Suppliers } from "@prisma/client";
 
 interface Props {
-  GetPatients: (startIndex: number, endIndex: number) => void;
+  GetData: (startIndex: number, endIndex: number) => void;
   searchTerm: string;
-  setPatients: React.Dispatch<React.SetStateAction<Patient[]>>;
+  setData: React.Dispatch<React.SetStateAction<Suppliers[]>>;
   firstIndex: number;
   lastIndex: number;
-  patientPerPage: number;
-  setFirstIndex: any;
-  setLastIndex: any;
+  itemsPerPage: number;
+  setFirstIndex: React.Dispatch<React.SetStateAction<number>>;
+  setLastIndex: React.Dispatch<React.SetStateAction<number>>;
 }
 
 const Pagination: FC<Props> = ({
-  GetPatients,
+  GetData,
   searchTerm,
-  setPatients,
+  setData,
   firstIndex,
   lastIndex,
-  patientPerPage,
+  itemsPerPage,
   setFirstIndex,
   setLastIndex,
 }) => {
@@ -34,59 +33,60 @@ const Pagination: FC<Props> = ({
   useEffect(() => {
     setButtonPreviousEnabled(firstIndex > 0);
 
-    const fetchPatients = async () => {
+    const fetchSuppliers = async () => {
       try {
-        const res = await axios.get("/api/patient", {
+        const res = await axios.get("/api/suppliers", {
           params: { searchTerm },
         });
-        const totalPatient = res.data.count;
-        if (totalPatient <= lastIndex) {
+        const totalSuppliers = res.data.count;
+        if (totalSuppliers <= lastIndex) {
           setButtonNextEnabled(false);
         } else {
           setButtonNextEnabled(true);
         }
       } catch (error) {
-        console.error("Error al cargar pacientes:", error);
+        console.error("Error al cargar proveedores:", error);
       }
     };
 
-    fetchPatients();
-  }, [firstIndex, lastIndex, patientPerPage, searchTerm]);
+    fetchSuppliers();
+  }, [firstIndex, lastIndex, itemsPerPage, searchTerm]);
 
-  const loadNextPatients = async () => {
+  const loadNextItems = async () => {
     const newFirstIndex = lastIndex;
-    const newLatestIndex = lastIndex + patientPerPage;
+    const newLatestIndex = lastIndex + itemsPerPage;
 
     try {
-      const res = await axios.get("/api/patient", {
+      const res = await axios.get("/api/suppliers", {
         params: {
           searchTerm,
           startIndex: newFirstIndex,
           endIndex: newLatestIndex,
         },
       });
-      if (res && res.data.patients) {
-        const newPatients = res.data.patients;
-        setPatients(newPatients);
-        GetPatients(newFirstIndex, newLatestIndex);
+      if (res && res.data.suppliers) {
+        const newSuppliers = res.data.suppliers;
+        setData(newSuppliers);
+        GetData(newFirstIndex, newLatestIndex);
         setFirstIndex(newFirstIndex);
         setLastIndex(newLatestIndex);
-        setButtonNextEnabled(newPatients.length >= patientPerPage);
+        setButtonNextEnabled(newSuppliers.length >= itemsPerPage);
       }
     } catch (error) {
-      console.error("Error al cargar los siguientes pacientes:", error);
+      console.error("Error al cargar los siguientes proveedores:", error);
     }
   };
 
-  const loadPatientsPrevious = () => {
-    const newFirstIndex = Math.max(firstIndex - patientPerPage, 0);
-    const newLatestIndex = newFirstIndex + patientPerPage;
+  const loadPreviousItems = () => {
+    const newFirstIndex = Math.max(firstIndex - itemsPerPage, 0);
+    const newLatestIndex = newFirstIndex + itemsPerPage;
     setButtonNextEnabled(true);
     setButtonPreviousEnabled(newFirstIndex > 0);
-    GetPatients(newFirstIndex, newLatestIndex); // Actualiza la paginación en el componente PatientTablet
+    GetData(newFirstIndex, newLatestIndex);
     setFirstIndex(newFirstIndex);
     setLastIndex(newLatestIndex);
   };
+
   return (
     <>
       <Box position="fixed" bottom="0" left="0" width="100%" p={4}>
@@ -94,7 +94,7 @@ const Pagination: FC<Props> = ({
           <Box mx={2}>
             <Button
               colorScheme="teal"
-              onClick={loadPatientsPrevious}
+              onClick={loadPreviousItems}
               isDisabled={!buttonPreviousEnabled}
             >
               <HiArrowNarrowLeft />
@@ -103,7 +103,7 @@ const Pagination: FC<Props> = ({
           <Box mx={2}>
             <Button
               colorScheme="teal"
-              onClick={loadNextPatients}
+              onClick={loadNextItems}
               isDisabled={!buttonNextEnabled}
             >
               <HiArrowNarrowRight />
@@ -114,4 +114,5 @@ const Pagination: FC<Props> = ({
     </>
   );
 };
+
 export default Pagination;

@@ -14,7 +14,73 @@ datasource db {
 }
 
 model User {
-  id    Int     @id @default(autoincrement())
+  id           Int    @id @default(autoincrement())
   email        String @unique
   passwordHash String
+}
+
+/// Provedores
+model Suppliers {
+  Id                 Int                  @id @default(autoincrement()) @map("id")
+  Name               String               @map("nombre") @db.VarChar(256)
+  Phone              String               @map("telefono") @db.VarChar(10)
+  Email              String               @map("correo") @db.VarChar(100)
+  State              Boolean              @map("estado")
+  ServiceRequests    ServiceRequests[]
+  Contracts          Contracts[]
+  SupplierEvaluation SupplierEvaluation[]
+
+  @@map("provedores")
+}
+
+/// Solicitudes Servicio
+model ServiceRequests {
+  Id                 Int                  @id @default(autoincrement()) @map("id")
+  ApplicationDate    DateTime             @map("fecha_solicitud")
+  Description        String               @map("descripcion") @db.VarChar(256)
+  IdSuppliers        Int                  @map("idprovedor")
+  Suppliers          Suppliers            @relation(fields: [IdSuppliers], references: [Id])
+  SupplierEvaluation SupplierEvaluation[]
+
+  @@map("solicitudes_servicio")
+}
+
+/// Evaluacion del provedor
+model SupplierEvaluation {
+  Id                Int             @id @default(autoincrement()) @map("id")
+  EvaluationDate    DateTime        @map("fecha_Evaluacion")
+  Qualification     Int             @map("calificacion")
+  Comments       String             @map("comentarios") @db.VarChar(256)
+  IdSuppliers       Int             @map("idprovedor")
+  IdServiceRequests Int             @map("idsoliser")
+  Suppliers         Suppliers       @relation(fields: [IdSuppliers], references: [Id])
+  ServiceRequests   ServiceRequests @relation(fields: [IdServiceRequests], references: [Id])
+
+  @@map("evaluacio_servicio")
+}
+
+/// Contratos
+model Contracts {
+  Id          Int       @id @default(autoincrement()) @map("id")
+  StartDate   DateTime  @map("fecha_inicio")
+  EndDate     DateTime  @map("fecha_fin")
+  Amount      Int       @map("monto")
+  Description String    @map("descripcion") @db.VarChar(256)
+  IdSuppliers Int       @map("idprovedor")
+  Suppliers   Suppliers @relation(fields: [IdSuppliers], references: [Id])
+  Pay         Pay[]
+
+  @@map("contratos")
+}
+
+/// Pagos
+model Pay {
+  Id            Int       @id @default(autoincrement()) @map("id")
+  PaymentDate   DateTime  @map("fecha_pago")
+  Amount        Int       @map("monto")
+  PaymentMethod String    @map("metodo_pago") @db.VarChar(256)
+  IdContracts   Int       @map("idcontrato")
+  Contracts     Contracts @relation(fields: [IdContracts], references: [Id])
+
+  @@map("pago")
 }
