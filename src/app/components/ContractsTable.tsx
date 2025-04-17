@@ -1,4 +1,4 @@
-/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 "use client";
 import { useEffect, useState } from "react";
 import axios from "axios";
@@ -18,99 +18,77 @@ import {
   Flex,
   IconButton,
   Text,
-  Badge,
-  useToast,
 } from "@chakra-ui/react";
 import { HiTrash, HiPencil, HiPlus } from "react-icons/hi";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-// import Pagination from "../components/Pagination";
 import CreateEditContractModal from "./ContractsComponents/CreateEditContractModal";
 import DeleteContractModal from "./ContractsComponents/DeleteContractModal";
-import { formatearFecha } from '@/app/utils/dateUtils';
+import Pagination from "./ContractsComponents/Pagination";
+import { formatearFecha } from "@/app/utils/dateUtils";
 
-// Definición de interfaces
-interface Supplier {
+export interface Contract {
   Id: number;
-  Name: string;
-  Phone: string;
-  Email: string;
-  State: boolean;
-}
-
-interface Contract {
-  Id: number;
-  StartDate: Date;
-  EndDate: Date;
-  Amount: number;
-  Description: string;
-  Suppliers: {
-    Name: string;
-  };
-  IdSuppliers: number; // Añadimos IdSuppliers aquí
-}
-
-// Tipo para el estado del formulario
-interface ContractFormState {
-  Id?: number;
-  StartDate: Date;
-  EndDate: Date;
+  StartDate: Date | string;
+  EndDate: Date | string;
   Amount: number;
   Description: string;
   IdSuppliers: number;
+  Suppliers: {
+    Id: number;
+    Name: string;
+  };
 }
 
 export default function ContractsTable() {
   const { status } = useSession();
   const { replace } = useRouter();
-  const toast = useToast();
-  
-  // Modals
   const {
     isOpen: isOpenModalDelete,
     onOpen: onOpenModalDelete,
     onClose: onCloseModalDelete,
   } = useDisclosure();
-  
   const {
     isOpen: isOpenModalCreateEdit,
     onOpen: onOpenModalCreateEdit,
     onClose: onCloseModalCreateEdit,
   } = useDisclosure();
+  const [isLoading] = useState(false);
 
-  // States
-  const [isLoading, setIsLoading] = useState(false);
+  // Estados para Create And Edit Modal
   const [method, setMethod] = useState<string>("");
   const [contracts, setContracts] = useState<Contract[]>([]);
-  const [contract, setContract] = useState<ContractFormState>({
+  const [contract, setContract] = useState<Contract>({
+    Id: 0,
     StartDate: new Date(),
     EndDate: new Date(),
     Amount: 0,
     Description: "",
     IdSuppliers: 0,
+    Suppliers: {
+      Id: 0,
+      Name: "",
+    },
   });
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
 
-  // Pagination
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [suppliers, setSuppliers] = useState<any[]>([]);
+
   const contractsPerPage = 7;
   const [firstIndex, setFirstIndex] = useState(0);
   const [lastIndex, setLastIndex] = useState(contractsPerPage);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Delete state
-  const [contractIdToDelete, setContractIdToDelete] = useState<number>(0);
-
-  // Fetch data
-  const GetContracts = async (startIndex: number = 0, endIndex: number = contractsPerPage) => {
+  const GetContracts = async (startIndex: number = 0, endIndex: number = 7) => {
     try {
-      setIsLoading(true);
       const res = await axios.get("/api/contracts", {
-        params: { searchTerm, startIndex, endIndex },
+        params: { skip: startIndex, take: endIndex - startIndex },
       });
 
-      if (res.data && res.data.contracts) {
+      if (res.data && Array.isArray(res.data.contracts)) {
         setContracts(res.data.contracts);
       } else {
+        console.error("Formato de datos inesperado:", res.data);
         setContracts([]);
       }
 
@@ -118,41 +96,29 @@ export default function ContractsTable() {
       setLastIndex(endIndex);
     } catch (error) {
       console.error("Error fetching contracts:", error);
-      toast({
-        title: "Error",
-        description: "No se pudieron cargar los contratos",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      });
       setContracts([]);
-    } finally {
-      setIsLoading(false);
     }
   };
 
   const GetSuppliers = async () => {
     try {
       const res = await axios.get("/api/suppliers");
-      if (res.data) {
-        setSuppliers(res.data);
+      if (res.data && Array.isArray(res.data.suppliers)) {
+        setSuppliers(res.data.suppliers);
       }
     } catch (error) {
       console.error("Error fetching suppliers:", error);
     }
   };
 
-  const EditContract = (contractId: number) => {
+  const EditContract = async (contractId: number) => {
     setMethod("editar");
     const contractFound = contracts.find((c) => c.Id === contractId);
     if (contractFound) {
       setContract({
-        Id: contractFound.Id,
+        ...contractFound,
         StartDate: new Date(contractFound.StartDate),
         EndDate: new Date(contractFound.EndDate),
-        Amount: contractFound.Amount,
-        Description: contractFound.Description,
-        IdSuppliers: contractFound.IdSuppliers
       });
       onOpenModalCreateEdit();
     }
@@ -160,15 +126,22 @@ export default function ContractsTable() {
 
   const ResetContract = () => {
     setContract({
+      Id: 0,
       StartDate: new Date(),
       EndDate: new Date(),
       Amount: 0,
       Description: "",
       IdSuppliers: 0,
+      Suppliers: {
+        Id: 0,
+        Name: "",
+      },
     });
   };
 
-  const handleOpenDeleteModal = (contractId: number) => {
+  // Delete Contract Modal
+  const [contractIdToDelete, setContractIdToDelete] = useState("");
+  const handleOpenModalAndDeleteConfirmation = (contractId: string) => {
     setContractIdToDelete(contractId);
     onOpenModalDelete();
   };
@@ -186,16 +159,6 @@ export default function ContractsTable() {
     return formatearFecha(date);
   };
 
-  const getContractStatus = (endDate: Date) => {
-    const today = new Date();
-    const end = new Date(endDate);
-    return end >= today ? "Vigente" : "Expirado";
-  };
-
-  const getStatusColor = (status: string) => {
-    return status === "Vigente" ? "green" : "red";
-  };
-
   return (
     <>
       <Box px={10}>
@@ -211,7 +174,6 @@ export default function ContractsTable() {
             size="lg"
           />
         </Box>
-        
         <TableContainer>
           <Table variant="striped" colorScheme="teal">
             <Thead>
@@ -221,30 +183,27 @@ export default function ContractsTable() {
                 <Th>Fecha Inicio</Th>
                 <Th>Fecha Fin</Th>
                 <Th>Monto</Th>
-                <Th>Estado</Th>
+                <Th>Descripción</Th>
                 <Th>Acciones</Th>
               </Tr>
             </Thead>
             <Tbody>
-              {isLoading ? (
-                <Tr>
-                  <Td colSpan={7} textAlign="center">
-                    <CircularProgress isIndeterminate color="teal.300" />
-                  </Td>
-                </Tr>
-              ) : contracts.length > 0 ? (
+              {contracts.length > 0 ? (
                 contracts.map((contract: Contract) => (
                   <Tr key={contract.Id}>
                     <Td>{contract.Id}</Td>
                     <Td>{contract.Suppliers?.Name || "N/A"}</Td>
-                    <Td>{formatDate(contract.StartDate)}</Td>
-                    <Td>{formatDate(contract.EndDate)}</Td>
-                    <Td>${contract.Amount.toLocaleString()}</Td>
                     <Td>
-                      <Badge colorScheme={getStatusColor(getContractStatus(contract.EndDate))}>
-                        {getContractStatus(contract.EndDate)}
-                      </Badge>
+                      {
+                        ///@ts-ignore
+                        formatDate(contract.StartDate)
+                      }
                     </Td>
+                    <Td>{
+                    ///@ts-ignore
+                    formatDate(contract.EndDate)}</Td>
+                    <Td>${contract.Amount.toLocaleString()}</Td>
+                    <Td>{contract.Description || "-"}</Td>
                     <Td>
                       <Flex>
                         <IconButton
@@ -255,7 +214,13 @@ export default function ContractsTable() {
                           icon={<HiTrash />}
                           _hover={{ bg: "transparent" }}
                           _active={{ bg: "transparent" }}
-                          onClick={() => handleOpenDeleteModal(contract.Id)}
+                          border="none"
+                          bg="transparent"
+                          onClick={() =>
+                            handleOpenModalAndDeleteConfirmation(
+                              `${contract.Id}`
+                            )
+                          }
                         />
                         <IconButton
                           variant="ghost"
@@ -265,6 +230,8 @@ export default function ContractsTable() {
                           icon={<HiPencil />}
                           _hover={{ bg: "transparent" }}
                           _active={{ bg: "transparent" }}
+                          border="none"
+                          bg="transparent"
                           onClick={() => EditContract(contract.Id)}
                         />
                       </Flex>
@@ -283,7 +250,7 @@ export default function ContractsTable() {
         </TableContainer>
       </Box>
 
-      {/* <Pagination
+      <Pagination
         GetData={GetContracts}
         searchTerm={searchTerm}
         setData={setContracts}
@@ -292,7 +259,7 @@ export default function ContractsTable() {
         lastIndex={lastIndex}
         setLastIndex={setLastIndex}
         itemsPerPage={contractsPerPage}
-      /> */}
+      />
 
       <Button
         colorScheme="teal"
@@ -314,7 +281,7 @@ export default function ContractsTable() {
       <DeleteContractModal
         isOpen={isOpenModalDelete}
         onClose={onCloseModalDelete}
-        contractId={contractIdToDelete}
+        contractIdToDelete={contractIdToDelete}
         onDelete={() => GetContracts()}
       />
 
