@@ -8,7 +8,6 @@ import {
   InputGroup,
   InputRightElement,
   Stack,
-  Text,
   Input,
   useToast,
 } from "@chakra-ui/react"
@@ -102,6 +101,7 @@ const SignUpForm = () => {
           position: "top",
         })
       }
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       toast({
         title: "Error en el servidor",
