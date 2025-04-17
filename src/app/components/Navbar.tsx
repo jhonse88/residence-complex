@@ -1,6 +1,5 @@
+'use client'
 import React from "react";
-import { authOptions } from "../api/auth/[...nextauth]/route";
-import { getServerSession } from "next-auth/next";
 import {
   Box,
   Link,
@@ -19,10 +18,15 @@ import {
 import { HiArrowSmDown, HiUserAdd } from "react-icons/hi";
 import { HiArrowRightOnRectangle } from "react-icons/hi2";
 import { VscSignIn } from "react-icons/vsc";
-import { FaUserInjured } from "react-icons/fa";
+import { GrUserWorker } from "react-icons/gr";
+import { useSession } from "next-auth/react";
 
-export default async function Navbar() {
-  const session = await getServerSession(authOptions);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export default function Navbar({ initialSession }: { initialSession: any }) {
+  const { data: session } = useSession();
+  // Usamos la sesión del servidor como estado inicial
+  const currentSession = session || initialSession;
+
   return (
     <>
       <Card>
@@ -32,7 +36,7 @@ export default async function Navbar() {
             <Box pl="12">
               <Link href="/">Inicio</Link>
             </Box>
-            {session && session.user?.email ? (
+            {currentSession && currentSession.user?.email ? (
               <>
                 <Menu>
                   <MenuButton
@@ -47,7 +51,7 @@ export default async function Navbar() {
                   <MenuList>
                     <Link href="/tablets/SupplierTablet">
                       <MenuItem>
-                        <FaUserInjured />
+                        <GrUserWorker />
                         <Box px={2} />
                         Provedores
                       </MenuItem>
@@ -55,7 +59,7 @@ export default async function Navbar() {
                   </MenuList>
                 </Menu>
                 <Spacer />
-                <Text>Bienvenido {session.user?.email}</Text>
+                <Text>Bienvenido {currentSession.user?.email}</Text>
                 <ButtonGroup gap="2">
                   <Link href="/auth/signout">
                     <Button colorScheme="teal" variant="ghost">

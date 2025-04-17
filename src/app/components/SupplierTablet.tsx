@@ -18,6 +18,7 @@ import {
   Flex,
   IconButton,
   Text,
+  Icon,
 } from "@chakra-ui/react";
 import { HiTrash, HiPencil, HiPlus, HiClipboardList } from "react-icons/hi";
 import { useRouter } from "next/navigation";
@@ -27,6 +28,7 @@ import { Supplier } from "../types/api";
 import CreateEditSupplierModal from "./SupplierComponents/CreateEditSupplierModal";
 import DeleteSupplierModal from "./SupplierComponents/DeleteSupplierModal";
 import ServiceRequestModal from "./SupplierComponents/ServiceRequestModal";
+import { FaRegStar, FaStar, FaStarHalfAlt } from "react-icons/fa";
 
 export default function SupplierTable() {
   const { status } = useSession();
@@ -60,7 +62,8 @@ export default function SupplierTable() {
   const [searchTerm, setSearchTerm] = useState("");
 
   const [selectedSupplierId, setSelectedSupplierId] = useState<number>(0);
-  const [selectedSupplierName, setSelectedSupplierName] = useState<string>('');
+  const [selectedSupplierName, setSelectedSupplierName] = useState<string>("");
+
 
   const {
     isOpen: isOpenServiceRequestModal,
@@ -151,6 +154,7 @@ export default function SupplierTable() {
                 <Th>Nombre</Th>
                 <Th>Teléfono</Th>
                 <Th>Correo</Th>
+                <Th>Calificación</Th>
                 <Th>Estado</Th>
                 <Th>Acciones</Th>
               </Tr>
@@ -163,6 +167,49 @@ export default function SupplierTable() {
                     <Td>{supplier.Name}</Td>
                     <Td>{supplier.Phone}</Td>
                     <Td>{supplier.Email || "-"}</Td>
+                    <Td>
+                      {supplier.averageRating ? (
+                        <Flex align="center">
+                          <Text mr={2}>
+                            {supplier.averageRating.toFixed(1)}/5
+                          </Text>
+                          <Flex>
+                            {[...Array(5)].map((_, i) => {
+                              const starValue = i + 1;
+                              const rating = supplier.averageRating!;
+
+                              if (rating >= starValue) {
+                                return (
+                                  <Icon
+                                    as={FaStar}
+                                    key={i}
+                                    color="yellow.400"
+                                  />
+                                );
+                              } else if (rating >= starValue - 0.5) {
+                                return (
+                                  <Icon
+                                    as={FaStarHalfAlt}
+                                    key={i}
+                                    color="yellow.400"
+                                  />
+                                );
+                              } else {
+                                return (
+                                  <Icon
+                                    as={FaRegStar}
+                                    key={i}
+                                    color="yellow.400"
+                                  />
+                                );
+                              }
+                            })}
+                          </Flex>
+                        </Flex>
+                      ) : (
+                        "No calificado"
+                      )}
+                    </Td>
                     <Td>{supplier.State ? "Activo" : "Inactivo"}</Td>
                     <Td>
                       <Flex>
@@ -210,6 +257,7 @@ export default function SupplierTable() {
                             setSelectedSupplierId(supplier.Id);
                             setSelectedSupplierName(supplier.Name);
                             onOpenServiceRequestModal();
+                            setSupplier(supplier)
                           }}
                         />
                       </Flex>
@@ -218,9 +266,10 @@ export default function SupplierTable() {
                 ))
               ) : (
                 <Tr>
-                  <Td colSpan={6} textAlign="center">
+                  <Td colSpan={7} textAlign="center">
                     No se encontraron proveedores
                   </Td>
+                  
                 </Tr>
               )}
             </Tbody>
@@ -280,6 +329,8 @@ export default function SupplierTable() {
         onClose={onCloseServiceRequestModal}
         supplierId={selectedSupplierId}
         supplierName={selectedSupplierName}
+        GetSuppliers={GetSuppliers} 
+        supplier={supplier}
       />
     </>
   );

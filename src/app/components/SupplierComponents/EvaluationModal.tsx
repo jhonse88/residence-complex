@@ -20,6 +20,7 @@ import {
 import { HiStar, HiOutlineStar, HiPencil } from "react-icons/hi";
 import { useState, useEffect } from "react";
 import axios from "axios";
+import { Suppliers } from "@prisma/client";
 
 interface EvaluationModalProps {
   isOpen: boolean;
@@ -29,6 +30,8 @@ interface EvaluationModalProps {
   currentRating?: number;
   currentComments?: string;
   onEvaluationSaved: () => void;
+  GetSuppliers: () => void;
+  supplier: Suppliers;
 }
 
 const EvaluationModal = ({
@@ -39,6 +42,8 @@ const EvaluationModal = ({
   currentRating = 0,
   currentComments = "",
   onEvaluationSaved,
+  GetSuppliers,
+  supplier
 }: EvaluationModalProps) => {
   const [rating, setRating] = useState(currentRating);
   const [hoverRating, setHoverRating] = useState(0);
@@ -107,6 +112,7 @@ const EvaluationModal = ({
 
       onEvaluationSaved();
       setIsEditing(false); // Volver al modo vista después de guardar
+      GetSuppliers()
     } catch (error) {
       toast({
         title: "Error",
@@ -262,6 +268,7 @@ const EvaluationModal = ({
               <Button
                 colorScheme="blue"
                 onClick={handleStartEditing}
+                isDisabled={supplier.State === false}
                 leftIcon={<Icon as={HiPencil} />}
               >
                 Editar

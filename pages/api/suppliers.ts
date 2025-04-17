@@ -39,16 +39,34 @@ export default async function handler(
         where: whereCondition,
         orderBy: { Name: 'asc' },
         skip,
-        take
+        take,
+        include: {
+          SupplierEvaluation: true // Incluir las evaluaciones
+        }
       });
   
       // Obtener el conteo total para paginación
       const totalCount = await prisma.suppliers.count({
         where: whereCondition
       });
+
+      const suppliersWithRating = suppliers.map(supplier => {
+        const evaluations = supplier.SupplierEvaluation;
+        let averageRating = 0;
+        
+        if (evaluations.length > 0) {
+          const total = evaluations.reduce((sum, evaluation) => sum + evaluation.Qualification, 0);
+          averageRating = parseFloat((total / evaluations.length).toFixed(1));
+        }
+  
+        return {
+          ...supplier,
+          averageRating: averageRating || 0
+        };
+      });
   
       res.status(200).json({
-        suppliers,
+        suppliers: suppliersWithRating,
         count: totalCount,
         currentPage: Math.floor(skip / take) + 1,
         totalPages: Math.ceil(totalCount / take)

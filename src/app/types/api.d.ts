@@ -11,4 +11,5 @@ export interface Supplier {
   Phone: string
   Email: string
   State: boolean
+  averageRating?: number
 }

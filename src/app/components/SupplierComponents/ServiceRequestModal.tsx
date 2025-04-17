@@ -29,10 +29,11 @@ import {
   HiStar,
   HiOutlineStar,
 } from "react-icons/hi";
-import { useState, useEffect } from "react";
+import { useState, useEffect, ChangeEvent } from "react";
 import axios from "axios";
 import Joi from "joi";
 import EvaluationModal from "./EvaluationModal";
+import { Suppliers } from "@prisma/client";
 
 interface ServiceRequest {
   Id: number;
@@ -56,11 +57,15 @@ const ServiceRequestModal = ({
   onClose,
   supplierId,
   supplierName,
+  GetSuppliers,
+  supplier
 }: {
   isOpen: boolean;
   onClose: () => void;
   supplierId: number;
   supplierName: string;
+  GetSuppliers: () => void;
+  supplier: Suppliers;
 }) => {
   const toast = useToast();
   const [errors, setErrors] = useState<any>({});
@@ -337,7 +342,7 @@ const ServiceRequestModal = ({
                   <Button
                     colorScheme="teal"
                     onClick={createNewRequest}
-                    isDisabled={isLoading}
+                    isDisabled={isLoading || supplier.State === false}
                     size="sm"
                   >
                     Nueva Solicitud
@@ -351,7 +356,7 @@ const ServiceRequestModal = ({
                       variant={evaluation ? "outline" : "solid"}
                     >
                       {evaluation
-                        ? "Ver/Editar Calificación"
+                        ? "Ver Calificación"
                         : "Calificar Servicio"}
                     </Button>
                   ): null}
@@ -372,6 +377,7 @@ const ServiceRequestModal = ({
                       onChange={handleChange}
                       type="datetime-local"
                       size="sm"
+                      isReadOnly
                     />
                     <FormErrorMessage fontSize="xs">
                       {errors.ApplicationDate}
@@ -444,7 +450,9 @@ const ServiceRequestModal = ({
           currentRating={evaluation?.Qualification}
           currentComments={evaluation?.Comments}
           onEvaluationSaved={handleEvaluationSaved}
-        />
+          GetSuppliers={GetSuppliers} 
+          supplier={supplier}
+          />
       )}
     </>
   );
