@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 "use client";
 import { useEffect, useState } from "react";
@@ -140,8 +141,8 @@ export default function ContractsTable() {
   };
 
   // Delete Contract Modal
-  const [contractIdToDelete, setContractIdToDelete] = useState("");
-  const handleOpenModalAndDeleteConfirmation = (contractId: string) => {
+  const [contractIdToDelete, setContractIdToDelete] = useState<number>(0);
+  const handleOpenModalAndDeleteConfirmation = (contractId: number) => {
     setContractIdToDelete(contractId);
     onOpenModalDelete();
   };
@@ -166,13 +167,13 @@ export default function ContractsTable() {
           <Text fontSize="4xl" textAlign={"center"}>
             Contratos
           </Text>
-          <Input
+          {/* <Input
             placeholder="Buscar contratos"
             variant="filled"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             size="lg"
-          />
+          /> */}
         </Box>
         <TableContainer>
           <Table variant="striped" colorScheme="teal">
@@ -199,9 +200,12 @@ export default function ContractsTable() {
                         formatDate(contract.StartDate)
                       }
                     </Td>
-                    <Td>{
-                    ///@ts-ignore
-                    formatDate(contract.EndDate)}</Td>
+                    <Td>
+                      {
+                        ///@ts-ignore
+                        formatDate(contract.EndDate)
+                      }
+                    </Td>
                     <Td>${contract.Amount.toLocaleString()}</Td>
                     <Td>{contract.Description || "-"}</Td>
                     <Td>
@@ -217,9 +221,7 @@ export default function ContractsTable() {
                           border="none"
                           bg="transparent"
                           onClick={() =>
-                            handleOpenModalAndDeleteConfirmation(
-                              `${contract.Id}`
-                            )
+                            handleOpenModalAndDeleteConfirmation(contract.Id)
                           }
                         />
                         <IconButton
@@ -251,7 +253,7 @@ export default function ContractsTable() {
       </Box>
 
       <Pagination
-        GetData={GetContracts}
+        GetData={(start, end) => GetContracts(start, end)}
         searchTerm={searchTerm}
         setData={setContracts}
         firstIndex={firstIndex}

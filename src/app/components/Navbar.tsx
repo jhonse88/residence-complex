@@ -20,6 +20,8 @@ import { HiArrowRightOnRectangle } from "react-icons/hi2";
 import { VscSignIn } from "react-icons/vsc";
 import { GrUserWorker } from "react-icons/gr";
 import { useSession } from "next-auth/react";
+import { LiaFileContractSolid } from "react-icons/lia";
+
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function Navbar({ initialSession }: { initialSession: any }) {
@@ -54,6 +56,13 @@ export default function Navbar({ initialSession }: { initialSession: any }) {
                         <GrUserWorker />
                         <Box px={2} />
                         Provedores
+                      </MenuItem>
+                    </Link>
+                    <Link href="/tablets/ContractsTablet">
+                      <MenuItem>
+                        <LiaFileContractSolid />
+                        <Box px={2} />
+                        Contratos
                       </MenuItem>
                     </Link>
                   </MenuList>

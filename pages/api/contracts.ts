@@ -92,23 +92,16 @@ export default async function handler(
       console.error("Error updating contract:", error);
       res.status(500).json({ error: "Error al actualizar contrato" });
     }
-  } else if (req.method === "DELETE") {
+  } if (req.method === 'DELETE') {
     try {
-      const { Id } = req.query;
+      const { Id } = req.body;  // Leer del cuerpo en lugar de query
+      
       if (!Id) {
-        return res.status(400).json({ error: "ID no proporcionado" });
+        return res.status(400).json({ error: 'ID no proporcionado' });
       }
 
-      const contractId =
-        typeof Id === "string"
-          ? parseInt(Id)
-          : Array.isArray(Id)
-          ? parseInt(Id[0])
-          : Id;
-
-      // Verificar si tiene pagos asociados
       const payments = await prisma.pay.count({
-        where: { IdContracts: contractId },
+        where: { IdContracts: Id },
       });
 
       if (payments > 0) {
@@ -116,15 +109,14 @@ export default async function handler(
           error: "No se puede eliminar, tiene pagos asociados",
         });
       }
-
-      const deletedContract = await prisma.contracts.delete({
-        where: { Id: contractId },
-      });
-
-      res.status(200).json(deletedContract);
+      
+      // Lógica para eliminar el contrato...
+      await prisma.contracts.delete({ where: { Id: Number(Id) } });
+      
+      return res.status(200).json({ message: 'Contrato eliminado' });
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
-      console.error("Error deleting contract:", error);
-      res.status(500).json({ error: "Error al eliminar contrato" });
+      return res.status(500).json({ error: 'Error al eliminar contrato' });
     }
   } else {
     res.setHeader("Allow", ["GET", "POST", "PUT", "DELETE"]);
