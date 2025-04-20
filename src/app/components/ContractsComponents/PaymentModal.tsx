@@ -21,8 +21,11 @@ import {
   InputGroup,
   InputRightAddon,
   InputLeftAddon,
+  Image,
+  Box,
 } from "@chakra-ui/react";
 import { HiChevronLeft, HiChevronRight } from "react-icons/hi";
+import { MdPayment } from "react-icons/md";
 import { useState, useEffect, ChangeEvent } from "react";
 import axios from "axios";
 import Joi from "joi";
@@ -36,6 +39,10 @@ interface Payment {
   IdContracts: number;
   Contracts?: {
     ContractNumber: string;
+    Debt?: number;
+    Suppliers?: {
+      Phone?: string;
+    };
   };
 }
 
@@ -59,7 +66,14 @@ const PaymentModal = ({
   const [isCreating, setIsCreating] = useState(false);
   const [hasNext, setHasNext] = useState(false);
   const [hasPrev, setHasPrev] = useState(false);
-  const [contractDebt, setContractDebt] = useState<number>(0); // Nuevo estado
+  const [contractDebt, setContractDebt] = useState<number>(0);
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [qrCode, setQrCode] = useState("");
+  const [nequiLink, setNequiLink] = useState("");
+  const [paymentDetails, setPaymentDetails] = useState({
+    phoneNumber: "",
+    amount: 0,
+  });
 
   const paymentMethods = [
     "Efectivo",
@@ -79,7 +93,7 @@ const PaymentModal = ({
     Amount: Joi.number()
       .required()
       .min(1)
-      .max(contractDebt) // Nueva validación
+      .max(contractDebt)
       .messages({
         "number.base": "El monto debe ser un número válido",
         "number.min": "El monto debe ser mayor a 0",
@@ -131,7 +145,7 @@ const PaymentModal = ({
 
   const fetchPayment = async (direction?: "next" | "prev" | "last") => {
     try {
-    // Obtener la deuda del contrato
+      // Obtener la deuda del contrato
       const contractResponse = await axios.get(`/api/contracts/${contractId}`);
       setContractDebt(contractResponse.data.Debt || 0);
 
@@ -142,8 +156,6 @@ const PaymentModal = ({
         ...(direction && { direction }),
       };
 
-
-      
       const response = await axios.get("/api/payments", { params });
 
       const checkNeighbors = async () => {
@@ -208,6 +220,47 @@ const PaymentModal = ({
     setHasPrev(false);
   };
 
+  const generateQRForPayment = async () => {
+    if (!currentPayment?.Amount) {
+      toast({
+        position: "top",
+        title: "Error",
+        description: "El monto del pago no es válido",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const response = await axios.post("/api/payments/generate-qr", {
+        contractId,
+        amount: currentPayment.Amount,
+      });
+
+      setQrCode(response.data.qrCode);
+      setNequiLink(response.data.nequiLink);
+      setPaymentDetails({
+        phoneNumber: response.data.phoneNumber,
+        amount: response.data.amount,
+      });
+      setShowQRModal(true);
+    } catch (error) {
+      toast({
+        position: "top",
+        title: "Error",
+        description: "No se pudo generar el código QR",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const savePayment = async () => {
     if (!currentPayment || !validateForm()) {
       toast({
@@ -236,9 +289,7 @@ const PaymentModal = ({
         isClosable: true,
       });
 
-      GetContracts(); // Actualizar la lista de contratos
-
-      // Después de guardar, cargar el último pago (que incluirá el recién creado)
+      GetContracts();
       await fetchPayment("last");
     } catch (error) {
       toast({
@@ -257,7 +308,7 @@ const PaymentModal = ({
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
-    if (!currentPayment || currentPayment.Id !== 0) return; // Solo permite cambios en nuevos pagos
+    if (!currentPayment || currentPayment.Id !== 0) return;
 
     const { name, value } = e.target;
 
@@ -281,139 +332,214 @@ const PaymentModal = ({
   }, [isOpen, contractId]);
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} isCentered size="xl">
-      <ModalOverlay />
-      <ModalContent>
-        <ModalHeader>
-          <Flex direction="column">
-            <Text fontSize="xl">Registro de Pago</Text>
-            <Text fontSize="sm" color="gray.500">
-              Contrato: {contractNumber}
-            </Text>
-          </Flex>
-        </ModalHeader>
-        <ModalCloseButton />
-        <ModalBody>
-          {isLoading ? (
-            <Flex justify="center" align="center" minH="200px">
-              <Text>Cargando...</Text>
+    <>
+      <Modal isOpen={isOpen} onClose={onClose} isCentered size="xl">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            <Flex direction="column">
+              <Text fontSize="xl">Registro de Pago</Text>
+              <Text fontSize="sm" color="gray.500">
+                Contrato: {contractNumber}
+              </Text>
             </Flex>
-          ) : (
-            <>
-              <Flex justify="flex-start" mb={4}>
-                <Button
-                  colorScheme="teal"
-                  onClick={createNewPayment}
-                  isDisabled={isLoading}
-                  size="sm"
-                >
-                  Nuevo Pago
-                </Button>
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            {isLoading ? (
+              <Flex justify="center" align="center" minH="200px">
+                <Text>Cargando...</Text>
               </Flex>
-
-              <SimpleGrid columns={1} spacingY={4}>
-                <FormControl isInvalid={!!errors.PaymentDate} isRequired>
-                  <FormLabel fontSize="sm">Fecha y Hora</FormLabel>
-                  <Input
-                    name="PaymentDate"
-                    value={
-                      currentPayment?.PaymentDate
-                        ? formatToDatetimeLocal(currentPayment.PaymentDate)
-                        : ""
-                    }
-                    onChange={handleChange}
-                    type="datetime-local"
-                    size="sm"
-                    isReadOnly={currentPayment?.Id !== 0} 
-                  />
-                  <FormErrorMessage fontSize="xs">
-                    {errors.PaymentDate}
-                  </FormErrorMessage>
-                </FormControl>
-
-                <FormControl isInvalid={!!errors.Amount} isRequired>
-                  <FormLabel fontSize="sm">Monto</FormLabel>
-                  <InputGroup size="sm">
-                  <InputLeftAddon>$</InputLeftAddon>
-                    <Input
-                      name="Amount"
-                      type="number"
-                      value={currentPayment?.Amount || ""}
-                      onChange={handleChange}
-                      size="sm"
-                      isReadOnly={currentPayment?.Id !== 0}
-                      max={contractDebt}
-                      
-                    />
-                  </InputGroup>
-                  <FormErrorMessage fontSize="xs">
-                    {errors.Amount}
-                  </FormErrorMessage>
-                </FormControl>
-
-                <FormControl isInvalid={!!errors.PaymentMethod} isRequired>
-                  <FormLabel fontSize="sm">Método de Pago</FormLabel>
-                  <Select
-                    name="PaymentMethod"
-                    value={currentPayment?.PaymentMethod || ""}
-                    onChange={handleChange}
-                    placeholder="Seleccione método"
-                    size="sm"
-                    isReadOnly={currentPayment?.Id !== 0} // Solo editable en nuevos pagos
-                  >
-                    {paymentMethods.map((method) => (
-                      <option key={method} value={method}>
-                        {method}
-                      </option>
-                    ))}
-                  </Select>
-                  <FormErrorMessage fontSize="xs">
-                    {errors.PaymentMethod}
-                  </FormErrorMessage>
-                </FormControl>
-              </SimpleGrid>
-
-              {currentPayment?.Id ? (
-                <Flex justify="space-between" mt={6}>
+            ) : (
+              <>
+                <Flex justify="flex-start" mb={4}>
                   <Button
-                    leftIcon={<HiChevronLeft />}
-                    onClick={() => fetchPayment("prev")}
-                    isDisabled={!hasPrev || isLoading}
+                    colorScheme="teal"
+                    onClick={createNewPayment}
+                    isDisabled={isLoading}
                     size="sm"
-                    variant="outline"
                   >
-                    Anterior
-                  </Button>
-                  <Button
-                    rightIcon={<HiChevronRight />}
-                    onClick={() => fetchPayment("next")}
-                    isDisabled={!hasNext || isLoading}
-                    size="sm"
-                    variant="outline"
-                  >
-                    Siguiente
+                    Nuevo Pago
                   </Button>
                 </Flex>
-              ) : null}
-            </>
-          )}
-        </ModalBody>
-        <ModalFooter>
-          <Button onClick={onClose} mr={3} size="sm" variant="ghost">
-            Cerrar
-          </Button>
-          <Button
-            colorScheme="teal"
-            onClick={savePayment}
-            isLoading={isLoading}
-            isDisabled={!currentPayment || currentPayment?.Id !== 0} // Solo muestra para nuevos pagos
-            size="sm"
-          >
-            Guardar Pago
-          </Button>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
+
+                <SimpleGrid columns={1} spacingY={4}>
+                  <FormControl isInvalid={!!errors.PaymentDate} isRequired>
+                    <FormLabel fontSize="sm">Fecha y Hora</FormLabel>
+                    <Input
+                      name="PaymentDate"
+                      value={
+                        currentPayment?.PaymentDate
+                          ? formatToDatetimeLocal(currentPayment.PaymentDate)
+                          : ""
+                      }
+                      onChange={handleChange}
+                      type="datetime-local"
+                      size="sm"
+                      isReadOnly={currentPayment?.Id !== 0}
+                    />
+                    <FormErrorMessage fontSize="xs">
+                      {errors.PaymentDate}
+                    </FormErrorMessage>
+                  </FormControl>
+
+                  <FormControl isInvalid={!!errors.Amount} isRequired>
+                    <FormLabel fontSize="sm">Monto</FormLabel>
+                    <InputGroup size="sm">
+                      <InputLeftAddon>$</InputLeftAddon>
+                      <Input
+                        name="Amount"
+                        type="number"
+                        value={currentPayment?.Amount || ""}
+                        onChange={handleChange}
+                        size="sm"
+                        isReadOnly={currentPayment?.Id !== 0}
+                        max={contractDebt}
+                      />
+                    </InputGroup>
+                    <Flex justify="space-between" mt={1}>
+                      <FormErrorMessage fontSize="xs">
+                        {errors.Amount}
+                      </FormErrorMessage>
+                      <Text fontSize="xs" color="gray.500">
+                        Deuda disponible: ${contractDebt.toLocaleString()}
+                      </Text>
+                    </Flex>
+                  </FormControl>
+
+                  <FormControl isInvalid={!!errors.PaymentMethod} isRequired>
+                    <FormLabel fontSize="sm">Método de Pago</FormLabel>
+                    <Select
+                      name="PaymentMethod"
+                      value={currentPayment?.PaymentMethod || ""}
+                      onChange={handleChange}
+                      placeholder="Seleccione método"
+                      size="sm"
+                      isReadOnly={currentPayment?.Id !== 0}
+                    >
+                      {paymentMethods.map((method) => (
+                        <option key={method} value={method}>
+                          {method}
+                        </option>
+                      ))}
+                    </Select>
+                    <FormErrorMessage fontSize="xs">
+                      {errors.PaymentMethod}
+                    </FormErrorMessage>
+                  </FormControl>
+                </SimpleGrid>
+
+                {currentPayment?.Id ? (
+                  <Flex justify="space-between" mt={6}>
+                    <Button
+                      leftIcon={<HiChevronLeft />}
+                      onClick={() => fetchPayment("prev")}
+                      isDisabled={!hasPrev || isLoading}
+                      size="sm"
+                      variant="outline"
+                    >
+                      Anterior
+                    </Button>
+                    <Button
+                      colorScheme="green"
+                      onClick={generateQRForPayment}
+                      isDisabled={isLoading}
+                      size="sm"
+                      leftIcon={<MdPayment />}
+                    >
+                      Pagar con Nequi
+                    </Button>
+                    <Button
+                      rightIcon={<HiChevronRight />}
+                      onClick={() => fetchPayment("next")}
+                      isDisabled={!hasNext || isLoading}
+                      size="sm"
+                      variant="outline"
+                    >
+                      Siguiente
+                    </Button>
+                  </Flex>
+                ) : null}
+              </>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button onClick={onClose} mr={3} size="sm" variant="ghost">
+              Cerrar
+            </Button>
+            <Button
+              colorScheme="teal"
+              onClick={savePayment}
+              isLoading={isLoading}
+              isDisabled={!currentPayment || currentPayment?.Id !== 0}
+              size="sm"
+            >
+              Guardar Pago
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+      {/* Modal para el código QR */}
+      <Modal
+        isOpen={showQRModal}
+        onClose={() => setShowQRModal(false)}
+        isCentered
+        size="md"
+      >
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader textAlign="center">Pagar con Nequi</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <Flex direction="column" align="center" gap={4}>
+              {/* <Text fontSize="lg" fontWeight="bold">
+                {paymentDetails}
+              </Text> */}
+
+              <Box border="1px" borderColor="gray.200" p={2} borderRadius="md">
+                {qrCode && (
+                  <Image
+                    src={qrCode}
+                    alt="Código QR para pago Nequi"
+                    boxSize="250px"
+                  />
+                )}
+              </Box>
+
+              <Flex direction="column" align="center" mt={2}>
+                <Text fontSize="sm" color="gray.600">
+                  Teléfono: {paymentDetails.phoneNumber}
+                </Text>
+                <Text fontSize="xl" fontWeight="bold" color="green.600">
+                  ${paymentDetails.amount}
+                </Text>
+                {/* <Text fontSize="sm" color="gray.500" textAlign="center">
+                  {paymentDetails.reference}
+                </Text> */}
+              </Flex>
+
+              <Button
+                colorScheme="blue"
+                as="a"
+                href={nequiLink}
+                target="_blank"
+                leftIcon={<MdPayment />}
+                size="lg"
+                w="full"
+                mt={4}
+              >
+                Abrir en App Nequi
+              </Button>
+            </Flex>
+          </ModalBody>
+          <ModalFooter justifyContent="center">
+            <Button onClick={() => setShowQRModal(false)} variant="outline">
+              Cerrar
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+    </>
   );
 };
 

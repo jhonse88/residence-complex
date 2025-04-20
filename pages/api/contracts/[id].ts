@@ -13,7 +13,13 @@ export default async function handler(
       const contract = await prisma.contracts.findUnique({
         where: { Id: Number(id) },
         include: {
-          Suppliers: true,
+          Suppliers: {
+            select: {
+              Id: true,
+              Name: true,
+              Phone: true,
+            },
+          },
         },
       });
 
