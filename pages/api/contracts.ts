@@ -54,6 +54,7 @@ export default async function handler(
           StartDate: new Date(StartDate),
           EndDate: new Date(EndDate),
           Amount: Number(Amount),
+          Debt: Number(Amount),
           Description: Description || "",
           IdSuppliers: Number(IdSuppliers),
         },
@@ -65,7 +66,7 @@ export default async function handler(
       res.status(201).json(newContract);
     } catch (error) {
       console.error("Error creating contract:", error);
-      res.status(500).json({ error: "Error al crear contrato" });
+      res.status(500).json({ error: "Error al crear contrato"});
     }
   } else if (req.method === "PUT") {
     try {

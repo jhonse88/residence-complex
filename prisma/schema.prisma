@@ -65,6 +65,7 @@ model Contracts {
   StartDate   DateTime  @map("fecha_inicio")
   EndDate     DateTime  @map("fecha_fin")
   Amount      Int       @map("monto")
+  Debt        Int       @map("deuda")
   Description String    @map("descripcion") @db.VarChar(256)
   IdSuppliers Int       @map("idprovedor")
   Suppliers   Suppliers @relation(fields: [IdSuppliers], references: [Id])

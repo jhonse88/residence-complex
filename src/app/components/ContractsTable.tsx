@@ -27,12 +27,15 @@ import CreateEditContractModal from "./ContractsComponents/CreateEditContractMod
 import DeleteContractModal from "./ContractsComponents/DeleteContractModal";
 import Pagination from "./ContractsComponents/Pagination";
 import { formatearFecha } from "@/app/utils/dateUtils";
+import PaymentModal from "./ContractsComponents/PaymentModal";
+import { MdPayments } from "react-icons/md";
 
 export interface Contract {
   Id: number;
   StartDate: Date | string;
   EndDate: Date | string;
   Amount: number;
+  Debt?: number;
   Description: string;
   IdSuppliers: number;
   Suppliers: {
@@ -54,6 +57,13 @@ export default function ContractsTable() {
     onOpen: onOpenModalCreateEdit,
     onClose: onCloseModalCreateEdit,
   } = useDisclosure();
+
+  const {
+    isOpen: isOpenModalPay,
+    onOpen: onOpenModalPay,
+    onClose: onCloseModalPay,
+  } = useDisclosure();
+
   const [isLoading] = useState(false);
 
   // Estados para Create And Edit Modal
@@ -131,6 +141,7 @@ export default function ContractsTable() {
       StartDate: new Date(),
       EndDate: new Date(),
       Amount: 0,
+      Debt: 0, // Nuevo campo
       Description: "",
       IdSuppliers: 0,
       Suppliers: {
@@ -142,9 +153,15 @@ export default function ContractsTable() {
 
   // Delete Contract Modal
   const [contractIdToDelete, setContractIdToDelete] = useState<number>(0);
+
   const handleOpenModalAndDeleteConfirmation = (contractId: number) => {
     setContractIdToDelete(contractId);
     onOpenModalDelete();
+  };
+
+  const handleOpenModalPay = (contractId: number) => {
+    setContractIdToDelete(contractId);
+    onOpenModalPay();
   };
 
   useEffect(() => {
@@ -183,7 +200,7 @@ export default function ContractsTable() {
                 <Th>Proveedor</Th>
                 <Th>Fecha Inicio</Th>
                 <Th>Fecha Fin</Th>
-                <Th>Monto</Th>
+                <Th>Deuda</Th> 
                 <Th>Descripción</Th>
                 <Th>Acciones</Th>
               </Tr>
@@ -207,6 +224,7 @@ export default function ContractsTable() {
                       }
                     </Td>
                     <Td>${contract.Amount.toLocaleString()}</Td>
+                    <Td>${contract?.Debt?.toLocaleString()}</Td> 
                     <Td>{contract.Description || "-"}</Td>
                     <Td>
                       <Flex>
@@ -235,6 +253,19 @@ export default function ContractsTable() {
                           border="none"
                           bg="transparent"
                           onClick={() => EditContract(contract.Id)}
+                        />
+
+                        <IconButton
+                          variant="ghost"
+                          colorScheme="green"
+                          aria-label="Pay"
+                          fontSize="20px"
+                          icon={<MdPayments />}
+                          _hover={{ bg: "transparent" }}
+                          _active={{ bg: "transparent" }}
+                          border="none"
+                          bg="transparent"
+                          onClick={() => handleOpenModalPay(contract.Id)}
                         />
                       </Flex>
                     </Td>
@@ -297,6 +328,14 @@ export default function ContractsTable() {
         setContract={setContract}
         ResetContract={ResetContract}
         suppliers={suppliers}
+      />
+
+      <PaymentModal
+        isOpen={isOpenModalPay}
+        onClose={() => onCloseModalPay()}
+        contractId={contractIdToDelete}
+        contractNumber={contractIdToDelete.toString()}
+        GetContracts={GetContracts}
       />
     </>
   );
