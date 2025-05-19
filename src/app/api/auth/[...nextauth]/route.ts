@@ -1,58 +1,39 @@
 import prisma from "@/app/lib/prisma";
-import { Account, AuthOptions, Profile, Session, User } from "next-auth";
+import NextAuth, { NextAuthOptions } from "next-auth";
 import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken'
 import { JWT } from "next-auth/jwt";
-import NextAuth from "next-auth/next";
 
-export const authOptions: AuthOptions = {
+
+export const authOptions: NextAuthOptions = {
     providers: [
         CredentialsProvider({
             name: 'credentials',
-            
             credentials: {
-                email: {
-                    label: 'Email',
-                    type: 'text',
-                    placeholder: 'your@email.com'
-                },
-                password: {
-                    label: 'Password',
-                    type: 'password'
-                }
+                email: { label: 'Email', type: 'text' },
+                password: { label: 'Password', type: 'password' }
             },
             authorize: async (credentials) => {
-                if(!credentials) {
-                    return null;
-                }
-
-                const { email, password } = credentials;
+                if(!credentials) return null;
 
                 const user = await prisma.user.findUnique({
-                    where: {
-                        email
-                    }
+                    where: { email: credentials.email }
                 });
 
-                if(!user) {
-                    return null;
-                }
-                const userObject: User = {
-                    id: user.id.toString(), // Convierte el id a string
-                    email: user.email,
-                    // Otros campos de usuario si los tienes
+                if(!user) return null;
+
+                const isValidPassword = bcrypt.compareSync(
+                    credentials.password, 
+                    user.passwordHash
+                );
+
+                if(!isValidPassword) return null;
+
+                return {
+                    id: user.id.toString(),
+                    email: user.email
                 };
-
-                const userPassword = user.passwordHash;
-
-                const isValidPassword = bcrypt.compareSync(password, userPassword);
-
-                if(!isValidPassword) {
-                    return null;
-                }
-
-                return userObject;
             }
         })
     ],
@@ -62,53 +43,38 @@ export const authOptions: AuthOptions = {
     },
     secret: process.env.NEXTAUTH_SECRET,
     jwt: {
-        async encode({secret, token}) {
-            if(!token) {
-                throw new Error('No token to encode');
-            }
+        encode: ({ secret, token }) => {
+            if(!token) throw new Error('No token to encode');
             return jwt.sign(token, secret);
         },
-        async decode({secret, token}) {
-            if(!token) {
-                throw new Error('No token to decode');
-            }
-            const decodedToken = jwt.verify(token, secret);
-            if(typeof decodedToken === 'string') {
-                return JSON.parse(decodedToken);
-            } else {
-                return decodedToken;
+        decode: async ({ secret, token }) => {
+            if(!token) return null;
+            try {
+                return jwt.verify(token, secret) as JWT;
+            } catch {
+                return null;
             }
         }
     },
     session: {
         strategy: 'jwt',
         maxAge: 30 * 24 * 60 * 60,
-        updateAge: 24 * 60 * 60,
     },
     callbacks: {
-        async session(params: {session: Session; token: JWT; user: User}) {
-            if(params.session.user) {
-                params.session.user.email = params.token.email;
+        async session({ session, token }) {
+            if(session.user) {
+                session.user.email = token.email;
             }
-
-            return params.session;
+            return session;
         },
-        async jwt(params: {
-            token: JWT;
-            user?: User | undefined;
-            account?: Account | null | undefined;
-            profile?: Profile | undefined;
-            isNewUser?: boolean | undefined;
-        }) {
-            if(params.user) {
-                params.token.email = params.user.email;
+        async jwt({ token, user }) {
+            if(user) {
+                token.email = user.email;
             }
-
-            return params.token;
+            return token;
         }
     }
 }
 
 const handler = NextAuth(authOptions);
-
 export { handler as GET, handler as POST };
