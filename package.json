@@ -2,12 +2,11 @@
   "name": "residence-complex",
   "version": "0.1.0",
   "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
-  },
+"scripts": {
+  "dev": "next dev",
+  "build": "next build",
+  "start": "next start"
+},
   "dependencies": {
     "@chakra-ui/next-js": "^2.1.5",
     "@chakra-ui/react": "^2.8.1",
@@ -23,7 +22,7 @@
     "jspdf": "^3.0.1",
     "jspdf-autotable": "^5.0.2",
     "lodash": "^4.17.21",
-    "next": "15.3.0",
+    "next": "^15.3.0",
     "next-auth": "^4.24.11",
     "qrcode": "^1.5.4",
     "react": "^18.2.0",
