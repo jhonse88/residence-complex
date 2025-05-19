@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import prisma from "@/app/lib/prisma";
 import { NextApiRequest, NextApiResponse } from "next";
@@ -36,9 +37,11 @@ export default async function handler(
 
         if (direction === "next" && currentId) {
           orderBy = { Id: "asc" };
+          // @ts-ignore
           whereClause = { ...whereClause, Id: { gt: Number(currentId) } };
         } else if (direction === "prev" && currentId) {
           orderBy = { Id: "desc" };
+          // @ts-ignore
           whereClause = { ...whereClause, Id: { lt: Number(currentId) } };
         } else if (direction === "last") {
           orderBy = { Id: "desc" };

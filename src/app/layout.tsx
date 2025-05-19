@@ -7,7 +7,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <html lang='en'>
             <body >               
                 <Provider>
-                    <Navbar />
+                    <Navbar initialSession={undefined} />
                 <div className='pt-8'></div>
                     {children}
                 </Provider>
