@@ -1,7 +1,6 @@
 "use client"
 
 import React, { useCallback, useState } from "react"
-import { signUp } from "../actions/users/signUp"
 import {
   Button,
   Center,
@@ -77,35 +76,35 @@ const SignUpForm = () => {
     })
 
     try {
-      const responseMessage = await signUp(email, password)
+      const response = await fetch('/api/signUp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      })
 
-      if (responseMessage === "Nuevo usuario creado exitosamente") {
-        toast({
-          title: "Éxito",
-          description: "Cuenta creada exitosamente. Redirigiendo a inicio de sesión...",
-          status: "success",
-          duration: 3000,
-          isClosable: true,
-          position: "top",
-        })
+      const data = await response.json()
 
-
-        router.push("/auth/signin")
-      } else {
-        toast({
-          title: "Error",
-          description: responseMessage,
-          status: "error",
-          duration: 5000,
-          isClosable: true,
-          position: "top",
-        })
+      if (!response.ok) {
+        throw new Error(data.message || 'Error al crear la cuenta')
       }
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (error) {
+
       toast({
-        title: "Error en el servidor",
-        description: "Hubo un problema al crear la cuenta. Inténtalo nuevamente.",
+        title: "Éxito",
+        description: "Cuenta creada exitosamente. Redirigiendo a inicio de sesión...",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+        position: "top",
+      })
+
+      router.push("/auth/signin")
+      
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Hubo un problema al crear la cuenta. Inténtalo nuevamente.",
         status: "error",
         duration: 5000,
         isClosable: true,
@@ -113,6 +112,7 @@ const SignUpForm = () => {
       })
     }
   }
+
 
   return (
     <>
