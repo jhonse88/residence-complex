@@ -200,6 +200,7 @@ export default function ContractsTable() {
                 <Th>Proveedor</Th>
                 <Th>Fecha Inicio</Th>
                 <Th>Fecha Fin</Th>
+                <Th>Monto</Th> 
                 <Th>Deuda</Th> 
                 <Th>Descripción</Th>
                 <Th>Acciones</Th>
