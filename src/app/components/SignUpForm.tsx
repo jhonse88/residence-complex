@@ -1,22 +1,14 @@
-"use client"
+'use client'
 
-import React, { useCallback, useState } from "react"
-import {
-  Button,
-  Center,
-  InputGroup,
-  InputRightElement,
-  Stack,
-  Input,
-  useToast,
-} from "@chakra-ui/react"
-import { TbEye, TbEyeOff } from "react-icons/tb"
-import Joi from "joi"
-import { useRouter } from "next/navigation"
+import React, { useCallback, useState } from 'react'
+import { Button, Center, InputGroup, InputRightElement, Stack, Input, useToast } from '@chakra-ui/react'
+import { TbEye, TbEyeOff } from 'react-icons/tb'
+import Joi from 'joi'
+import { useRouter } from 'next/navigation'
 
 const SignUpForm = () => {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [show, setShow] = React.useState(false)
   const toast = useToast()
   const router = useRouter()
@@ -30,32 +22,31 @@ const SignUpForm = () => {
         .email({ tlds: { allow: false } })
         .required()
         .messages({
-          "string.email": "El correo no es válido.",
-          "string.empty": "El correo es obligatorio.",
+          'string.email': 'El correo no es válido.',
+          'string.empty': 'El correo es obligatorio.'
         }),
       password: Joi.string()
         .min(8)
         .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{8,}$/)
         .required()
         .messages({
-          "string.min": "La contraseña debe tener al menos 8 caracteres.",
-          "string.pattern.base":
-            "La contraseña debe tener al menos una mayúscula, una minúscula y un número.",
-          "string.empty": "La contraseña es obligatoria.",
-        }),
+          'string.min': 'La contraseña debe tener al menos 8 caracteres.',
+          'string.pattern.base': 'La contraseña debe tener al menos una mayúscula, una minúscula y un número.',
+          'string.empty': 'La contraseña es obligatoria.'
+        })
     })
 
     const { error } = schema.validate(formToValidate, { abortEarly: false })
 
     if (error) {
-      error.details.forEach((detail) => {
+      error.details.forEach(detail => {
         toast({
-          title: "Error en el formulario",
+          title: 'Error en el formulario',
           description: detail.message,
-          status: "error",
+          status: 'error',
           duration: 5000,
           isClosable: true,
-          position: "top",
+          position: 'top'
         })
       })
       return false
@@ -68,20 +59,20 @@ const SignUpForm = () => {
     if (!validateForm()) return
 
     toast({
-      title: "Creando cuenta...",
-      status: "info",
+      title: 'Creando cuenta...',
+      status: 'info',
       duration: 2000,
       isClosable: true,
-      position: "top",
+      position: 'top'
     })
 
     try {
       const response = await fetch('/api/signUp', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password })
       })
 
       const data = await response.json()
@@ -91,66 +82,60 @@ const SignUpForm = () => {
       }
 
       toast({
-        title: "Éxito",
-        description: "Cuenta creada exitosamente. Redirigiendo a inicio de sesión...",
-        status: "success",
+        title: 'Éxito',
+        description: 'Cuenta creada exitosamente. Redirigiendo a inicio de sesión...',
+        status: 'success',
         duration: 3000,
         isClosable: true,
-        position: "top",
+        position: 'top'
       })
 
-      router.push("/auth/signin")
-      
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      router.push('/auth/signin')
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       toast({
-        title: "Error",
-        description: error.message || "Hubo un problema al crear la cuenta. Inténtalo nuevamente.",
-        status: "error",
+        title: 'Error',
+        description: error.message || 'Hubo un problema al crear la cuenta. Inténtalo nuevamente.',
+        status: 'error',
         duration: 5000,
         isClosable: true,
-        position: "top",
+        position: 'top'
       })
     }
   }
-
 
   return (
     <>
       <Center>
         <Stack spacing={7}>
           <Input
-            variant="filled"
-            placeholder="Correo@ejemplo.com"
-            type="text"
+            variant='filled'
+            placeholder='Correo@ejemplo.com'
+            type='text'
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={e => setEmail(e.target.value)}
           />
-          <InputGroup size="md">
+          <InputGroup size='md'>
             <Input
-              variant="filled"
-              pr="4.5rem"
-              type={show ? "text" : "password"}
-              placeholder="Ingresar contraseña"
+              variant='filled'
+              pr='4.5rem'
+              type={show ? 'text' : 'password'}
+              placeholder='Ingresar contraseña'
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={e => setPassword(e.target.value)}
             />
-            <InputRightElement width="4.5rem">
-              <Button h="1.75rem" size="sm" onClick={handleClick}>
+            <InputRightElement width='4.5rem'>
+              <Button h='1.75rem' size='sm' onClick={handleClick}>
                 {show ? (
-                  <TbEye className="text-2xl text-default-400 pointer-events-none" />
+                  <TbEye className='text-2xl text-default-400 pointer-events-none' />
                 ) : (
-                  <TbEyeOff className="text-2xl text-default-400 pointer-events-none" />
+                  <TbEyeOff className='text-2xl text-default-400 pointer-events-none' />
                 )}
               </Button>
             </InputRightElement>
           </InputGroup>
-          <Button
-            colorScheme="teal"
-            variant="outline"
-            size="md"
-            onClick={handleSubmit}
-          >
+          <Button colorScheme='teal' variant='outline' size='md' onClick={handleSubmit}>
             Crear
           </Button>
         </Stack>

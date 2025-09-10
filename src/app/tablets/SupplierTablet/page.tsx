@@ -3,7 +3,7 @@ import { Metadata } from 'next'
 import SupplierTablet from '@/app/components/SupplierTablet'
 
 export const metadata: Metadata = {
-  title: 'Provedores',
+  title: 'Provedores'
 }
 
 const Supplier = () => {

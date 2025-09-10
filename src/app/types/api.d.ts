@@ -1,10 +1,9 @@
-
 export interface User {
-    id: number;
-    email: string;
-    passwordHash: string;
-  }
-  
+  id: number
+  email: string
+  passwordHash: string
+}
+
 export interface Supplier {
   Id: number
   Name: string
@@ -15,14 +14,14 @@ export interface Supplier {
 }
 
 export interface Contract {
-  Id: number;
-  StartDate: Date | string;
-  EndDate: Date | string;
-  Amount: number;
-  Description: string;
-  IdSuppliers: number;
+  Id: number
+  StartDate: Date | string
+  EndDate: Date | string
+  Amount: number
+  Description: string
+  IdSuppliers: number
   Suppliers: {
-    Id: number;
-    Name: string;
-  };
+    Id: number
+    Name: string
+  }
 }

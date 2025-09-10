@@ -4,16 +4,15 @@ import { Center, Text } from '@chakra-ui/react'
 import { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Crear cuenta',
+  title: 'Crear cuenta'
 }
 
 const SignUpPage = () => {
   return (
     <div className='flex flex-col gap-4'>
       <Center>
-        <Text className='text-4xl'>
-          Crear Cuenta
-        </Text></Center>
+        <Text className='text-4xl'>Crear Cuenta</Text>
+      </Center>
       <SignUpForm />
     </div>
   )

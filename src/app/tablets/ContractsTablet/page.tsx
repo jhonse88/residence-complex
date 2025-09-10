@@ -1,9 +1,9 @@
 import React from 'react'
 import { Metadata } from 'next'
-import ContractsTable from '@/app/components/ContractsTable';
+import ContractsTable from '@/app/components/ContractsTable'
 
 export const metadata: Metadata = {
-  title: 'Contratos',
+  title: 'Contratos'
 }
 
 const Order = () => {

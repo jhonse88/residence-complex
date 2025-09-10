@@ -4,19 +4,16 @@ import React from 'react'
 import { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Iniciar Sesion',
+  title: 'Iniciar Sesion'
 }
 
 const SignInPage = () => {
   return (
     <div className='flex flex-col gap-4'>
       <Center>
-        <h1 className='text-4xl'>
-          Iniciar Sesion
-        </h1>
+        <h1 className='text-4xl'>Iniciar Sesion</h1>
       </Center>
       <SignInForm />
-
     </div>
   )
 }

@@ -1,23 +1,13 @@
-import prisma from '@/app/lib/prisma';
-import { NextApiRequest, NextApiResponse } from 'next';
+import prisma from '@/app/lib/prisma'
+import { NextApiRequest, NextApiResponse } from 'next'
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
-  const {
-    Id,
-    EvaluationDate,
-    Qualification,
-    Comments,
-    IdSuppliers,
-    IdServiceRequests
-  } = req.body;
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  const { Id, EvaluationDate, Qualification, Comments, IdSuppliers, IdServiceRequests } = req.body
 
   if (req.method === 'GET') {
     try {
-      const { supplierId, requestId } = req.query;
-      
+      const { supplierId, requestId } = req.query
+
       const evaluations = await prisma.supplierEvaluation.findMany({
         where: {
           ...(supplierId && { IdSuppliers: Number(supplierId) }),
@@ -28,18 +18,18 @@ export default async function handler(
           ServiceRequests: true
         },
         orderBy: { EvaluationDate: 'desc' }
-      });
-  
-      res.status(200).json(evaluations);
+      })
+
+      res.status(200).json(evaluations)
     } catch (error) {
-      console.error('Error fetching evaluations:', error);
-      res.status(500).json({ error: 'Error al obtener evaluaciones' });
+      console.error('Error fetching evaluations:', error)
+      res.status(500).json({ error: 'Error al obtener evaluaciones' })
     }
   } else if (req.method === 'POST') {
     try {
       // Validar que la calificación esté entre 1 y 5
       if (Qualification < 1 || Qualification > 5) {
-        return res.status(400).json({ error: 'La calificación debe ser entre 1 y 5' });
+        return res.status(400).json({ error: 'La calificación debe ser entre 1 y 5' })
       }
 
       const newEvaluation = await prisma.supplierEvaluation.create({
@@ -54,10 +44,10 @@ export default async function handler(
           Suppliers: true,
           ServiceRequests: true
         }
-      });
-      res.status(201).json(newEvaluation);
+      })
+      res.status(201).json(newEvaluation)
     } catch (error) {
-      res.status(500).json({ error: `Error al crear evaluación: ${error}` });
+      res.status(500).json({ error: `Error al crear evaluación: ${error}` })
     }
   } else if (req.method === 'PUT') {
     try {
@@ -70,25 +60,25 @@ export default async function handler(
           IdSuppliers: Number(IdSuppliers),
           IdServiceRequests: Number(IdServiceRequests)
         }
-      });
-      res.status(200).json(updatedEvaluation);
+      })
+      res.status(200).json(updatedEvaluation)
     } catch (error) {
-      res.status(500).json({ error: `Error al actualizar evaluación: ${error}` });
+      res.status(500).json({ error: `Error al actualizar evaluación: ${error}` })
     }
   } else if (req.method === 'DELETE') {
     try {
-      const { Id } = req.query;
-      const evaluationId = typeof Id === 'string' ? parseInt(Id) : Array.isArray(Id) ? parseInt(Id[0]) : Id;
+      const { Id } = req.query
+      const evaluationId = typeof Id === 'string' ? parseInt(Id) : Array.isArray(Id) ? parseInt(Id[0]) : Id
 
       const deletedEvaluation = await prisma.supplierEvaluation.delete({
         where: { Id: evaluationId }
-      });
-      
-      res.status(200).json(deletedEvaluation);
+      })
+
+      res.status(200).json(deletedEvaluation)
     } catch (error) {
-      res.status(500).json({ error: `Error al eliminar evaluación: ${error}` });
+      res.status(500).json({ error: `Error al eliminar evaluación: ${error}` })
     }
   } else {
-    res.status(405).end();
+    res.status(405).end()
   }
 }
