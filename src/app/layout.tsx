@@ -1,10 +1,10 @@
-import './globals.css'
 import Navbar from './components/Navbar'
 import { Provider } from './components/Provider'
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+
   return (
-    <html lang='en'>
+    <html>
       <body>
         <Provider>
           <Navbar initialSession={null} />

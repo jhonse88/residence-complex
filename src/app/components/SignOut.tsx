@@ -10,17 +10,19 @@ const SignOut = () => {
   useEffect(() => {
     const handleSignOut = async () => {
       try {
+        // const origin = window.location.origin
         await signOut({
-          callbackUrl: typeof window !== 'undefined' ? window.location.origin : '/'
+          callbackUrl: '/'
         })
       } catch (err) {
         setError('Error al cerrar sesión. Por favor intenta nuevamente.')
         console.error('Sign out error:', err)
       }
     }
-
+  
     handleSignOut()
   }, [])
+  
 
   if (error) {
     return (
