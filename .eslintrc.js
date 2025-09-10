@@ -4,13 +4,7 @@ module.exports = {
   parser: '@typescript-eslint/parser',
   plugins: ['@typescript-eslint', 'prettier'],
   extends: ['next/core-web-vitals', 'plugin:@typescript-eslint/recommended', 'plugin:prettier/recommended'],
-  ignorePatterns: [
-    "src/generated/**",
-    "src/generated/prisma/**",
-    ".next/**",
-    "dist/**",
-    "node_modules/**"
-  ],
+  ignorePatterns: ['src/generated/**', 'src/generated/prisma/**', '.next/**', 'dist/**', 'node_modules/**'],
   overrides: [
     {
       files: ['src/generated/**/*.{js,ts}'],
