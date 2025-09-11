@@ -1,7 +1,9 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 import prisma from '@/app/lib/prisma'
 import { NextApiRequest, NextApiResponse } from 'next'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { Id, ApplicationDate, Description, IdSuppliers, EvaluationDate, Qualification, Comments, IdServiceRequests } =
     req.body
 

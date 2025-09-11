@@ -2,6 +2,7 @@ import prisma from '@/app/lib/prisma'
 import { NextApiRequest, NextApiResponse } from 'next'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { Id, EvaluationDate, Qualification, Comments, IdSuppliers, IdServiceRequests } = req.body
 
   if (req.method === 'GET') {
