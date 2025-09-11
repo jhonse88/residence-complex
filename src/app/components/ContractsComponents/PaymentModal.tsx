@@ -19,17 +19,15 @@ import {
   Text,
   Select,
   InputGroup,
-  InputRightAddon,
   InputLeftAddon,
   Image,
   Box
 } from '@chakra-ui/react'
 import { HiChevronLeft, HiChevronRight } from 'react-icons/hi'
 import { MdPayment } from 'react-icons/md'
-import { useState, useEffect, ChangeEvent } from 'react'
+import { useState, useEffect, ChangeEvent, useCallback } from 'react'
 import axios from 'axios'
 import Joi from 'joi'
-import { Contracts } from '@prisma/client'
 
 interface Payment {
   Id: number
@@ -44,6 +42,11 @@ interface Payment {
       Phone?: string
     }
   }
+}
+
+interface PaymentNavigation {
+  hasNext: boolean
+  hasPrev: boolean
 }
 
 const PaymentModal = ({
@@ -64,8 +67,7 @@ const PaymentModal = ({
   const [isLoading, setIsLoading] = useState(false)
   const [currentPayment, setCurrentPayment] = useState<Payment | null>(null)
   const [isCreating, setIsCreating] = useState(false)
-  const [hasNext, setHasNext] = useState(false)
-  const [hasPrev, setHasPrev] = useState(false)
+  const [navigation, setNavigation] = useState<PaymentNavigation>({ hasNext: false, hasPrev: false })
   const [contractDebt, setContractDebt] = useState<number>(0)
   const [showQRModal, setShowQRModal] = useState(false)
   const [qrCode, setQrCode] = useState('')
@@ -106,7 +108,8 @@ const PaymentModal = ({
     IdContracts: Joi.number().required()
   })
 
-  const formatToDatetimeLocal = (isoString: string) => {
+  // Memoizar funciones para evitar recreaciones innecesarias
+  const formatToDatetimeLocal = useCallback((isoString: string) => {
     if (!isoString) return ''
     const date = new Date(isoString)
     const year = date.getFullYear()
@@ -115,14 +118,14 @@ const PaymentModal = ({
     const hours = String(date.getHours()).padStart(2, '0')
     const minutes = String(date.getMinutes()).padStart(2, '0')
     return `${year}-${month}-${day}T${hours}:${minutes}`
-  }
+  }, [])
 
-  const parseDatetimeLocal = (datetimeLocal: string) => {
+  const parseDatetimeLocal = useCallback((datetimeLocal: string) => {
     if (!datetimeLocal) return ''
     return new Date(datetimeLocal).toISOString()
-  }
+  }, [])
 
-  const validateForm = () => {
+  const validateForm = useCallback(() => {
     if (!currentPayment) return false
 
     const { error } = paymentSchema.validate(currentPayment, {
@@ -141,63 +144,61 @@ const PaymentModal = ({
 
     setErrors({})
     return true
-  }
+  }, [currentPayment, paymentSchema])
 
-  const fetchPayment = async (direction?: 'next' | 'prev' | 'last') => {
+  // Función optimizada para obtener información de navegación
+  const checkPaymentNavigation = useCallback(
+    async (paymentId: number) => {
+      try {
+        const [nextRes, prevRes] = await Promise.all([
+          axios.get('/api/payments', {
+            params: { contractId, currentId: paymentId, direction: 'next' }
+          }),
+          axios.get('/api/payments', {
+            params: { contractId, currentId: paymentId, direction: 'prev' }
+          })
+        ])
+
+        setNavigation({
+          hasNext: !!nextRes.data,
+          hasPrev: !!prevRes.data
+        })
+      } catch (error) {
+        setNavigation({ hasNext: false, hasPrev: false })
+      }
+    },
+    [contractId]
+  )
+
+  // Función optimizada para cargar datos
+  const loadInitialData = useCallback(async () => {
     try {
-      // Obtener la deuda del contrato
-      const contractResponse = await axios.get(`/api/contracts/${contractId}`)
+      setIsLoading(true)
+
+      // Cargar deuda del contrato y último pago en paralelo
+      const [contractResponse, lastPaymentResponse] = await Promise.all([
+        axios.get(`/api/contracts/${contractId}`),
+        axios.get('/api/payments', { params: { contractId, direction: 'last' } })
+      ])
+
       setContractDebt(contractResponse.data.Debt || 0)
 
-      setIsLoading(true)
-      const params = {
-        contractId,
-        ...(currentPayment?.Id && { currentId: currentPayment.Id }),
-        ...(direction && { direction })
-      }
-
-      const response = await axios.get('/api/payments', { params })
-
-      const checkNeighbors = async () => {
-        try {
-          const nextRes = await axios.get('/api/payments', {
-            params: {
-              contractId,
-              currentId: response.data.Id,
-              direction: 'next'
-            }
-          })
-          setHasNext(!!nextRes.data)
-
-          const prevRes = await axios.get('/api/payments', {
-            params: {
-              contractId,
-              currentId: response.data.Id,
-              direction: 'prev'
-            }
-          })
-          setHasPrev(!!prevRes.data)
-        } catch (error) {
-          setHasNext(false)
-          setHasPrev(false)
-        }
-      }
-
-      if (response.data?.Id) {
-        await checkNeighbors()
+      if (lastPaymentResponse.data?.Id) {
+        setCurrentPayment(lastPaymentResponse.data)
+        // Verificar navegación solo si hay un pago válido
+        await checkPaymentNavigation(lastPaymentResponse.data.Id)
       } else {
-        setHasNext(false)
-        setHasPrev(false)
+        setCurrentPayment(null)
+        setNavigation({ hasNext: false, hasPrev: false })
       }
 
-      setCurrentPayment(response.data)
       setIsCreating(false)
     } catch (error) {
-      console.error('Error fetching payment:', error)
+      console.error('Error loading initial data:', error)
       toast({
         position: 'top',
         title: 'Error',
-        description: 'No se pudo cargar el pago',
+        description: 'No se pudo cargar la información',
         status: 'error',
         duration: 3000,
         isClosable: true
@@ -205,9 +206,47 @@ const PaymentModal = ({
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [contractId, checkPaymentNavigation, toast])
 
-  const createNewPayment = () => {
+  const fetchPayment = useCallback(
+    async (direction?: 'next' | 'prev' | 'last') => {
+      try {
+        setIsLoading(true)
+        const params = {
+          contractId,
+          ...(currentPayment?.Id && { currentId: currentPayment.Id }),
+          ...(direction && { direction })
+        }
+
+        const response = await axios.get('/api/payments', { params })
+
+        if (response.data?.Id) {
+          setCurrentPayment(response.data)
+          await checkPaymentNavigation(response.data.Id)
+        } else {
+          setCurrentPayment(null)
+          setNavigation({ hasNext: false, hasPrev: false })
+        }
+
+        setIsCreating(false)
+      } catch (error) {
+        console.error('Error fetching payment:', error)
+        toast({
+          position: 'top',
+          title: 'Error',
+          description: 'No se pudo cargar el pago',
+          status: 'error',
+          duration: 3000,
+          isClosable: true
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [contractId, currentPayment?.Id, checkPaymentNavigation, toast]
+  )
+
+  const createNewPayment = useCallback(() => {
     setCurrentPayment({
       Id: 0,
       PaymentDate: new Date().toISOString(),
@@ -216,11 +255,10 @@ const PaymentModal = ({
       IdContracts: contractId
     })
     setIsCreating(true)
-    setHasNext(false)
-    setHasPrev(false)
-  }
+    setNavigation({ hasNext: false, hasPrev: false })
+  }, [contractId])
 
-  const generateQRForPayment = async () => {
+  const generateQRForPayment = useCallback(async () => {
     if (!currentPayment?.Amount) {
       toast({
         position: 'top',
@@ -259,9 +297,9 @@ const PaymentModal = ({
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [currentPayment?.Amount, contractId, toast])
 
-  const savePayment = async () => {
+  const savePayment = useCallback(async () => {
     if (!currentPayment || !validateForm()) {
       toast({
         position: 'top',
@@ -288,7 +326,7 @@ const PaymentModal = ({
       })
 
       GetContracts()
-      await fetchPayment('last')
+      await loadInitialData() // Recargar datos en lugar de fetch individual
     } catch (error) {
       toast({
         position: 'top',
@@ -301,26 +339,39 @@ const PaymentModal = ({
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [currentPayment, validateForm, GetContracts, loadInitialData, toast])
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    if (!currentPayment || currentPayment.Id !== 0) return
+  const handleChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+      if (!currentPayment || currentPayment.Id !== 0) return
 
-    const { name, value } = e.target
+      const { name, value } = e.target
 
-    setCurrentPayment({
-      ...currentPayment,
-      [name]: name === 'PaymentDate' ? parseDatetimeLocal(value) : name === 'Amount' ? Number(value) : value
-    })
-  }
+      setCurrentPayment(prev => ({
+        ...prev!,
+        [name]: name === 'PaymentDate' ? parseDatetimeLocal(value) : name === 'Amount' ? Number(value) : value
+      }))
+    },
+    [currentPayment, parseDatetimeLocal]
+  )
 
+  // Efecto optimizado para cargar datos iniciales
   useEffect(() => {
     if (isOpen) {
-      fetchPayment('last')
+      loadInitialData()
       setErrors({})
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, contractId])
+  }, [isOpen, loadInitialData])
+
+  // Resetear estado cuando se cierra el modal
+  useEffect(() => {
+    if (!isOpen) {
+      setCurrentPayment(null)
+      setNavigation({ hasNext: false, hasPrev: false })
+      setErrors({})
+      setShowQRModal(false)
+    }
+  }, [isOpen])
 
   return (
     <>
@@ -409,7 +460,7 @@ const PaymentModal = ({
                     <Button
                       leftIcon={<HiChevronLeft />}
                       onClick={() => fetchPayment('prev')}
-                      isDisabled={!hasPrev || isLoading}
+                      isDisabled={!navigation.hasPrev || isLoading}
                       size='sm'
                       variant='outline'>
                       Anterior
@@ -425,7 +476,7 @@ const PaymentModal = ({
                     <Button
                       rightIcon={<HiChevronRight />}
                       onClick={() => fetchPayment('next')}
-                      isDisabled={!hasNext || isLoading}
+                      isDisabled={!navigation.hasNext || isLoading}
                       size='sm'
                       variant='outline'>
                       Siguiente
@@ -450,6 +501,7 @@ const PaymentModal = ({
           </ModalFooter>
         </ModalContent>
       </Modal>
+
       {/* Modal para el código QR */}
       <Modal isOpen={showQRModal} onClose={() => setShowQRModal(false)} isCentered size='md'>
         <ModalOverlay />
@@ -458,10 +510,6 @@ const PaymentModal = ({
           <ModalCloseButton />
           <ModalBody>
             <Flex direction='column' align='center' gap={4}>
-              {/* <Text fontSize="lg" fontWeight="bold">
-                {paymentDetails}
-              </Text> */}
-
               <Box border='1px' borderColor='gray.200' p={2} borderRadius='md'>
                 {qrCode && <Image src={qrCode} alt='Código QR para pago Nequi' boxSize='250px' />}
               </Box>
@@ -473,9 +521,6 @@ const PaymentModal = ({
                 <Text fontSize='xl' fontWeight='bold' color='green.600'>
                   ${paymentDetails.amount}
                 </Text>
-                {/* <Text fontSize="sm" color="gray.500" textAlign="center">
-                  {paymentDetails.reference}
-                </Text> */}
               </Flex>
 
               <Button
