@@ -30,26 +30,9 @@ class SupplierService {
     // Filtro de búsqueda
     if (searchTerm) {
       whereCondition = {
-        OR: [
-          {
-            Name: {
-              contains: searchTerm,
-              mode: 'insensitive' as const
-            }
-          },
-          {
-            Email: {
-              contains: searchTerm,
-              mode: 'insensitive' as const
-            }
-          },
-          {
-            Phone: {
-              contains: searchTerm,
-              mode: 'insensitive' as const
-            }
-          }
-        ]
+        Name: {
+          contains: searchTerm
+        }
       }
     }
 

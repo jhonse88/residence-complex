@@ -38,6 +38,7 @@ interface ServiceRequest {
   Suppliers?: {
     Name: string
   }
+  SupplierEvaluation?: Evaluation[]
 }
 
 interface Evaluation {
@@ -124,46 +125,54 @@ const ServiceRequestModal = ({
     return true
   }
 
+  const checkNeighborsForRequest = async (requestId: number) => {
+    try {
+      const nextRes = await axios.get('/api/serviceRequests', {
+        params: {
+          supplierId,
+          currentId: requestId,
+          direction: 'next',
+          includeEvaluation: 'false'
+        }
+      })
+      setHasNext(!!nextRes.data)
+
+      const prevRes = await axios.get('/api/serviceRequests', {
+        params: {
+          supplierId,
+          currentId: requestId,
+          direction: 'prev',
+          includeEvaluation: 'false'
+        }
+      })
+      setHasPrev(!!prevRes.data)
+    } catch (error) {
+      setHasNext(false)
+      setHasPrev(false)
+    }
+  }
+
   const fetchRequest = async (direction?: 'next' | 'prev' | 'last') => {
     try {
       setIsLoading(true)
       const params = {
         supplierId,
         ...(currentRequest?.Id && { currentId: currentRequest.Id }),
-        ...(direction && { direction })
+        ...(direction && { direction }),
+        includeEvaluation: 'true'
       }
 
       const response = await axios.get('/api/serviceRequests', { params })
 
-      const checkNeighbors = async () => {
-        try {
-          const nextRes = await axios.get('/api/serviceRequests', {
-            params: {
-              supplierId,
-              currentId: response.data.Id,
-              direction: 'next'
-            }
-          })
-          setHasNext(!!nextRes.data)
-
-          const prevRes = await axios.get('/api/serviceRequests', {
-            params: {
-              supplierId,
-              currentId: response.data.Id,
-              direction: 'prev'
-            }
-          })
-          setHasPrev(!!prevRes.data)
-        } catch (error) {
-          setHasNext(false)
-          setHasPrev(false)
-        }
-      }
-
       if (response.data?.Id) {
-        await checkNeighbors()
-        // Obtener la evaluación después de cargar la solicitud
-        await fetchEvaluation(response.data.Id)
+        await checkNeighborsForRequest(response.data.Id)
+
+        // La evaluación ahora viene incluida en la respuesta
+        if (response.data.SupplierEvaluation && response.data.SupplierEvaluation.length > 0) {
+          setEvaluation(response.data.SupplierEvaluation[0])
+        } else {
+          setEvaluation(null)
+        }
       } else {
         setHasNext(false)
         setHasPrev(false)
@@ -187,16 +196,6 @@ const ServiceRequestModal = ({
     }
   }
 
-  const fetchEvaluation = async (serviceRequestId: number) => {
-    try {
-      const response = await axios.get(`/api/evaluations?serviceRequestId=${serviceRequestId}`)
-      setEvaluation(response.data)
-    } catch (error) {
-      console.error('Error fetching evaluation:', error)
-      setEvaluation(null)
-    }
-  }
-
   const createNewRequest = () => {
     setCurrentRequest({
       Id: 0,
@@ -208,6 +207,7 @@ const ServiceRequestModal = ({
     setHasNext(false)
     setHasPrev(false)
     setEvaluation(null)
+    setErrors({})
   }
 
   const saveRequest = async () => {
@@ -226,7 +226,8 @@ const ServiceRequestModal = ({
     try {
       setIsLoading(true)
       const url = '/api/serviceRequests'
-      const response = currentRequest.Id ? await axios.put(url, currentRequest) : await axios.post(url, currentRequest)
+      const method = currentRequest.Id ? 'put' : 'post'
+      const response = await axios[method](url, currentRequest)
 
       toast({
         position: 'top',
@@ -236,8 +237,29 @@ const ServiceRequestModal = ({
         isClosable: true
       })
 
-      await fetchRequest('last')
+      // Recargar la solicitud actual con evaluación incluida
+      if (response.data.Id) {
+        const updatedRequest = await axios.get('/api/serviceRequests', {
+          params: {
+            supplierId,
+            currentId: response.data.Id,
+            includeEvaluation: 'true'
+          }
+        })
+        setCurrentRequest(updatedRequest.data)
+
+        // Actualizar evaluación si viene en la respuesta
+        if (updatedRequest.data.SupplierEvaluation && updatedRequest.data.SupplierEvaluation.length > 0) {
+          setEvaluation(updatedRequest.data.SupplierEvaluation[0])
+        } else {
+          setEvaluation(null)
+        }
+
+        // Verificar vecinos
+        await checkNeighborsForRequest(response.data.Id)
+      }
     } catch (error) {
+      console.error('Error saving request:', error)
       toast({
         position: 'top',
         title: 'Error',
@@ -263,15 +285,19 @@ const ServiceRequestModal = ({
   }
 
   const handleEvaluationSaved = () => {
+    // Recargar la solicitud actual para obtener la evaluación actualizada
     if (currentRequest?.Id) {
-      fetchEvaluation(currentRequest.Id)
+      fetchRequest()
     }
   }
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && supplierId) {
       fetchRequest('last')
       setErrors({})
+    } else if (isOpen) {
+      // Si no hay supplierId pero el modal está abierto, crear nueva solicitud
+      createNewRequest()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, supplierId])

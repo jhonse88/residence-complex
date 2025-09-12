@@ -13,11 +13,11 @@ import {
   FormLabel,
   Input,
   Textarea,
-  Select,
   useToast
 } from '@chakra-ui/react'
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import axios from 'axios'
+import AsyncSelect from 'react-select/async'
 import { Contract } from '@/app/types/api'
 
 interface CreateEditContractModalProps {
@@ -29,7 +29,12 @@ interface CreateEditContractModalProps {
   contract: Contract
   setContract: (contract: Contract) => void
   ResetContract: () => void
-  suppliers: any[]
+}
+
+interface SupplierOption {
+  value: number
+  label: string
+  data: any
 }
 
 export default function CreateEditContractModal({
@@ -40,13 +45,42 @@ export default function CreateEditContractModal({
   setMethod,
   contract,
   setContract,
-  ResetContract,
-  suppliers
+  ResetContract
 }: CreateEditContractModalProps) {
   const toast = useToast()
   const [isLoading, setIsLoading] = useState(false)
   const [dateError, setDateError] = useState('')
   const [amountInput, setAmountInput] = useState('')
+  const [selectedSupplier, setSelectedSupplier] = useState<SupplierOption | null>(null)
+
+  // Función para cargar proveedores con búsqueda
+  const loadSuppliers = useCallback(
+    async (inputValue: string): Promise<SupplierOption[]> => {
+      try {
+        const response = await axios.get(
+          `/api/suppliers?searchTerm=${encodeURIComponent(inputValue)}&startIndex=0&endIndex=20`
+        )
+        const suppliers = response.data.suppliers || []
+
+        return suppliers.map((supplier: any) => ({
+          value: supplier.Id,
+          label: supplier.Name,
+          data: supplier
+        }))
+      } catch (error) {
+        console.error('Error loading suppliers:', error)
+        toast({
+          title: 'Error',
+          description: 'No se pudieron cargar los proveedores',
+          status: 'error',
+          duration: 3000,
+          isClosable: true
+        })
+        return []
+      }
+    },
+    [toast]
+  )
 
   // Función para formatear a COP
   const formatToCOP = (value: number): string => {
@@ -64,20 +98,34 @@ export default function CreateEditContractModal({
     return parseFloat(numericValue) || 0
   }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
+  const handleSupplierChange = (selectedOption: SupplierOption | null) => {
+    setSelectedSupplier(selectedOption)
 
-    if (name === 'IdSuppliers') {
-      const selectedSupplier = suppliers.find(s => s.Id === parseInt(value))
+    if (selectedOption) {
       setContract({
         ...contract,
-        IdSuppliers: parseInt(value),
+        IdSuppliers: selectedOption.value,
         Suppliers: {
-          Id: selectedSupplier?.Id || 0,
-          Name: selectedSupplier?.Name || ''
+          Id: selectedOption.value,
+          Name: selectedOption.label
         }
       })
-    } else if (name === 'Amount' && method === 'crear') {
+    } else {
+      setContract({
+        ...contract,
+        IdSuppliers: 0,
+        Suppliers: {
+          Id: 0,
+          Name: ''
+        }
+      })
+    }
+  }
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+
+    if (name === 'Amount' && method === 'crear') {
       // Solo permitir cambiar monto en creación
       const numericValue = parseFromCOP(value)
       setContract({
@@ -125,6 +173,7 @@ export default function CreateEditContractModal({
           duration: 5000,
           isClosable: true
         })
+        setIsLoading(false)
         return
       }
 
@@ -137,6 +186,7 @@ export default function CreateEditContractModal({
           duration: 5000,
           isClosable: true
         })
+        setIsLoading(false)
         return
       }
 
@@ -183,6 +233,17 @@ export default function CreateEditContractModal({
     return dateObj.toISOString().split('T')[0]
   }
 
+  // Cargar el proveedor seleccionado cuando se abre el modal en modo edición
+  useState(() => {
+    if (isOpen && method === 'editar' && contract.IdSuppliers && !selectedSupplier) {
+      setSelectedSupplier({
+        value: contract.IdSuppliers,
+        label: contract.Suppliers?.Name || '',
+        data: contract.Suppliers
+      })
+    }
+  })
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} size='xl'>
       <ModalOverlay />
@@ -192,17 +253,22 @@ export default function CreateEditContractModal({
         <ModalBody>
           <FormControl isRequired mb={4}>
             <FormLabel>Proveedor</FormLabel>
-            <Select
-              name='IdSuppliers'
-              value={contract.IdSuppliers}
-              onChange={handleChange}
-              placeholder='Seleccione un proveedor'>
-              {suppliers.map(supplier => (
-                <option key={supplier.Id} value={supplier.Id}>
-                  {supplier.Name}
-                </option>
-              ))}
-            </Select>
+            <AsyncSelect
+              cacheOptions
+              defaultOptions
+              loadOptions={loadSuppliers}
+              value={selectedSupplier}
+              onChange={handleSupplierChange}
+              placeholder='Buscar proveedor...'
+              noOptionsMessage={() => 'No se encontraron proveedores'}
+              loadingMessage={() => 'Buscando...'}
+              styles={{
+                control: base => ({
+                  ...base,
+                  minHeight: '40px'
+                })
+              }}
+            />
           </FormControl>
 
           <FormControl isRequired mb={4}>

@@ -263,7 +263,7 @@ export default function ContractsTable() {
                 ))
               ) : (
                 <Tr>
-                  <Td colSpan={7} textAlign='center'>
+                  <Td colSpan={8} textAlign='center'>
                     No se encontraron contratos
                   </Td>
                 </Tr>
@@ -316,7 +316,6 @@ export default function ContractsTable() {
         contract={contract}
         setContract={setContract}
         ResetContract={ResetContract}
-        suppliers={suppliers}
       />
 
       <PaymentModal
