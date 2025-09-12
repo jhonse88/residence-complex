@@ -19,10 +19,9 @@ const SignOut = () => {
         console.error('Sign out error:', err)
       }
     }
-  
+
     handleSignOut()
   }, [])
-  
 
   if (error) {
     return (

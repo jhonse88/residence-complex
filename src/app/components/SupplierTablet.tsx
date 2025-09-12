@@ -52,10 +52,11 @@ export default function SupplierTable() {
     State: true
   })
 
-  const supplierPerPage = 7
+  const supplierPerPage = 10
   const [firstIndex, setFirstIndex] = useState(0)
   const [lastIndex, setLastIndex] = useState(supplierPerPage)
   const [searchTerm, setSearchTerm] = useState('')
+  const [totalCount, setTotalCount] = useState(0) // ✅ Nuevo estado para el total count
 
   const [selectedSupplierId, setSelectedSupplierId] = useState<number>(0)
   const [selectedSupplierName, setSelectedSupplierName] = useState<string>('')
@@ -66,28 +67,38 @@ export default function SupplierTable() {
     onClose: onCloseServiceRequestModal
   } = useDisclosure()
 
-  const GetSuppliers = async (startIndex: number = 0, endIndex: number = 7) => {
+  const GetSuppliers = async (startIndex: number = 0, endIndex: number = 10) => {
     try {
       const res = await axios.get('/api/suppliers', {
-        params: { searchTerm, startIndex, endIndex }
+        params: {
+          searchTerm,
+          startIndex: startIndex,
+          endIndex: endIndex
+        }
       })
 
-      console.log('Datos recibidos:', res.data) // Para depuración
+      console.log('Datos recibidos:', res.data)
 
-      if (res.data && Array.isArray(res.data)) {
-        setSuppliers(res.data)
-      } else if (res.data && res.data.suppliers) {
+      if (res.data && res.data.suppliers) {
         setSuppliers(res.data.suppliers)
+        setTotalCount(res.data.count)
+
+        // Actualizar índices después de recibir la respuesta
+        setFirstIndex(startIndex)
+        setLastIndex(Math.min(startIndex + res.data.suppliers.length, res.data.count))
       } else {
         console.error('Formato de datos inesperado:', res.data)
         setSuppliers([])
+        setTotalCount(0)
+        setFirstIndex(0)
+        setLastIndex(0)
       }
-
-      setFirstIndex(startIndex)
-      setLastIndex(endIndex)
     } catch (error) {
       console.error('Error fetching suppliers:', error)
       setSuppliers([])
+      setTotalCount(0)
+      setFirstIndex(0)
+      setLastIndex(0)
     }
   }
 
@@ -247,6 +258,7 @@ export default function SupplierTable() {
         </TableContainer>
       </Box>
 
+      {/* ✅ Pagination actualizado con las nuevas props */}
       <Pagination
         GetData={GetSuppliers}
         searchTerm={searchTerm}
@@ -256,6 +268,8 @@ export default function SupplierTable() {
         lastIndex={lastIndex}
         setLastIndex={setLastIndex}
         itemsPerPage={supplierPerPage}
+        totalCount={totalCount} // ✅ Nueva prop
+        setTotalCount={setTotalCount} // ✅ Nueva prop
       />
 
       <Button

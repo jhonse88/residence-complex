@@ -15,6 +15,8 @@ interface Props {
   itemsPerPage: number
   setFirstIndex: React.Dispatch<React.SetStateAction<number>>
   setLastIndex: React.Dispatch<React.SetStateAction<number>>
+  totalCount: number // Nueva prop para recibir el total count
+  setTotalCount: React.Dispatch<React.SetStateAction<number>> // Nueva prop para actualizar el total
 }
 
 const Pagination: FC<Props> = ({
@@ -25,7 +27,9 @@ const Pagination: FC<Props> = ({
   lastIndex,
   itemsPerPage,
   setFirstIndex,
-  setLastIndex
+  setLastIndex,
+  totalCount, // Recibimos el total count
+  setTotalCount // Recibimos el setter para el total count
 }) => {
   const [buttonPreviousEnabled, setButtonPreviousEnabled] = useState(false)
   const [buttonNextEnabled, setButtonNextEnabled] = useState(true)
@@ -33,24 +37,13 @@ const Pagination: FC<Props> = ({
   useEffect(() => {
     setButtonPreviousEnabled(firstIndex > 0)
 
-    const fetchSuppliers = async () => {
-      try {
-        const res = await axios.get('/api/suppliers', {
-          params: { searchTerm }
-        })
-        const totalSuppliers = res.data.count
-        if (totalSuppliers <= lastIndex) {
-          setButtonNextEnabled(false)
-        } else {
-          setButtonNextEnabled(true)
-        }
-      } catch (error) {
-        console.error('Error al cargar proveedores:', error)
-      }
+    // Ahora podemos calcular directamente sin hacer llamada adicional
+    if (totalCount <= lastIndex) {
+      setButtonNextEnabled(false)
+    } else {
+      setButtonNextEnabled(true)
     }
-
-    fetchSuppliers()
-  }, [firstIndex, lastIndex, itemsPerPage, searchTerm])
+  }, [firstIndex, lastIndex, totalCount]) // Dependencia de totalCount en lugar de hacer llamada API
 
   const loadNextItems = async () => {
     const newFirstIndex = lastIndex
@@ -64,27 +57,57 @@ const Pagination: FC<Props> = ({
           endIndex: newLatestIndex
         }
       })
+
       if (res && res.data.suppliers) {
         const newSuppliers = res.data.suppliers
         setData(newSuppliers)
+
+        // Actualizar el total count si viene en la respuesta
+        if (res.data.count !== undefined) {
+          setTotalCount(res.data.count)
+        }
+
         GetData(newFirstIndex, newLatestIndex)
         setFirstIndex(newFirstIndex)
         setLastIndex(newLatestIndex)
-        setButtonNextEnabled(newSuppliers.length >= itemsPerPage)
+        setButtonNextEnabled(newLatestIndex < totalCount)
       }
     } catch (error) {
       console.error('Error al cargar los siguientes proveedores:', error)
     }
   }
 
-  const loadPreviousItems = () => {
+  const loadPreviousItems = async () => {
     const newFirstIndex = Math.max(firstIndex - itemsPerPage, 0)
     const newLatestIndex = newFirstIndex + itemsPerPage
-    setButtonNextEnabled(true)
-    setButtonPreviousEnabled(newFirstIndex > 0)
-    GetData(newFirstIndex, newLatestIndex)
-    setFirstIndex(newFirstIndex)
-    setLastIndex(newLatestIndex)
+
+    try {
+      const res = await axios.get('/api/suppliers', {
+        params: {
+          searchTerm,
+          startIndex: newFirstIndex,
+          endIndex: newLatestIndex
+        }
+      })
+
+      if (res && res.data.suppliers) {
+        const newSuppliers = res.data.suppliers
+        setData(newSuppliers)
+
+        // Actualizar el total count si viene en la respuesta
+        if (res.data.count !== undefined) {
+          setTotalCount(res.data.count)
+        }
+
+        GetData(newFirstIndex, newLatestIndex)
+        setFirstIndex(newFirstIndex)
+        setLastIndex(newLatestIndex)
+        setButtonPreviousEnabled(newFirstIndex > 0)
+        setButtonNextEnabled(true)
+      }
+    } catch (error) {
+      console.error('Error al cargar los proveedores anteriores:', error)
+    }
   }
 
   return (

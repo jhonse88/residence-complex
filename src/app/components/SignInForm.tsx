@@ -51,6 +51,7 @@ const SignInForm = () => {
         })
         router.refresh()
       }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (err) {
       toast({
         title: 'Error',

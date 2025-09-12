@@ -1,9 +1,10 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 'use client'
 import { useEffect, useState } from 'react'
 import axios from 'axios'
 import {
   Button,
-  Input,
   CircularProgress,
   Table,
   TableContainer,
