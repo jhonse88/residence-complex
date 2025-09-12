@@ -1,125 +1,128 @@
+// src/pages/api/evaluations.ts
 import prisma from '@/app/lib/prisma'
 import { NextApiRequest, NextApiResponse } from 'next'
+import Joi from 'joi'
 
-// Interface para los datos de evaluación
-interface EvaluationData {
-  EvaluationDate: Date | string
-  Qualification: number
-  Comments: string
-  IdSuppliers: number
-  IdServiceRequests: number
-}
+// ---------------------------
+// Definición de errores tipados
+// ---------------------------
+class ValidationError extends Error {}
+class NotFoundError extends Error {}
 
-// Capa de Servicio - Lógica de negocio de evaluaciones
+// ---------------------------
+// Validación con Joi
+// ---------------------------
+const evaluationSchema = Joi.object({
+  EvaluationDate: Joi.date().required().messages({
+    'date.base': 'EvaluationDate debe ser una fecha válida',
+    'any.required': 'EvaluationDate es requerido'
+  }),
+  Qualification: Joi.number().min(1).max(5).required().messages({
+    'number.base': 'Qualification debe ser un número',
+    'number.min': 'La calificación mínima es 1',
+    'number.max': 'La calificación máxima es 5',
+    'any.required': 'Qualification es requerido'
+  }),
+  Comments: Joi.string().min(1).required().messages({
+    'string.base': 'Comments debe ser texto',
+    'any.required': 'Comments es requerido'
+  }),
+  IdSuppliers: Joi.number().required().messages({
+    'number.base': 'IdSuppliers debe ser un número',
+    'any.required': 'IdSuppliers es requerido'
+  }),
+  IdServiceRequests: Joi.number().required().messages({
+    'number.base': 'IdServiceRequests debe ser un número',
+    'any.required': 'IdServiceRequests es requerido'
+  })
+})
+
+// Para updates (permite parcial, excepto Id)
+const evaluationUpdateSchema = evaluationSchema
+  .fork(['EvaluationDate', 'Qualification', 'Comments', 'IdSuppliers', 'IdServiceRequests'], schema =>
+    schema.optional()
+  )
+  .append({
+    Id: Joi.number().required().messages({
+      'number.base': 'Id debe ser un número',
+      'any.required': 'Id es requerido'
+    })
+  })
+
+// ---------------------------
+// Capa de Servicio
+// ---------------------------
 class EvaluationService {
-  private static instance: EvaluationService
-
-  public static getInstance(): EvaluationService {
-    if (!EvaluationService.instance) {
-      EvaluationService.instance = new EvaluationService()
-    }
-    return EvaluationService.instance
-  }
-
-  // GET - Obtener evaluaciones con filtros
+  // GET - Obtener evaluaciones
   async getEvaluations(supplierId?: number, requestId?: number) {
-    return await prisma.supplierEvaluation.findMany({
+    return prisma.supplierEvaluation.findMany({
       where: {
         ...(supplierId && { IdSuppliers: supplierId }),
         ...(requestId && { IdServiceRequests: requestId })
       },
-      include: {
-        Suppliers: true,
-        ServiceRequests: true
-      },
+      include: { Suppliers: true, ServiceRequests: true },
       orderBy: { EvaluationDate: 'desc' }
     })
   }
 
   // POST - Crear nueva evaluación
-  async createEvaluation(data: EvaluationData) {
-    // Validar calificación
-    if (data.Qualification < 1 || data.Qualification > 5) {
-      throw new Error('La calificación debe ser entre 1 y 5')
+  async createEvaluation(data: unknown) {
+    const { error, value } = evaluationSchema.validate(data, { abortEarly: false })
+    if (error) {
+      throw new ValidationError(error.details.map(d => d.message).join(', '))
     }
 
-    return await prisma.supplierEvaluation.create({
-      data: {
-        EvaluationDate: new Date(data.EvaluationDate),
-        Qualification: Number(data.Qualification),
-        Comments: data.Comments,
-        IdSuppliers: Number(data.IdSuppliers),
-        IdServiceRequests: Number(data.IdServiceRequests)
-      },
-      include: {
-        Suppliers: true,
-        ServiceRequests: true
-      }
+    return prisma.supplierEvaluation.create({
+      data: value,
+      include: { Suppliers: true, ServiceRequests: true }
     })
   }
 
   // PUT - Actualizar evaluación
-  async updateEvaluation(id: number, data: EvaluationData) {
-    // Validar calificación
-    if (data.Qualification < 1 || data.Qualification > 5) {
-      throw new Error('La calificación debe ser entre 1 y 5')
+  async updateEvaluation(data: unknown) {
+    const { error, value } = evaluationUpdateSchema.validate(data, { abortEarly: false })
+    if (error) {
+      throw new ValidationError(error.details.map(d => d.message).join(', '))
     }
 
-    return await prisma.supplierEvaluation.update({
-      where: { Id: id },
-      data: {
-        EvaluationDate: new Date(data.EvaluationDate),
-        Qualification: Number(data.Qualification),
-        Comments: data.Comments,
-        IdSuppliers: Number(data.IdSuppliers),
-        IdServiceRequests: Number(data.IdServiceRequests)
-      }
+    const { Id, ...updateData } = value
+    return prisma.supplierEvaluation.update({
+      where: { Id },
+      data: updateData
     })
   }
 
   // DELETE - Eliminar evaluación
   async deleteEvaluation(id: number) {
-    return await prisma.supplierEvaluation.delete({
+    if (!id || isNaN(id)) {
+      throw new ValidationError('Id válido es requerido')
+    }
+
+    return prisma.supplierEvaluation.delete({
       where: { Id: id }
     })
   }
-
-  // Validar datos de evaluación
-  validateEvaluationData(data: Partial<EvaluationData>): string[] {
-    const errors: string[] = []
-
-    if (data.Qualification !== undefined && (data.Qualification < 1 || data.Qualification > 5)) {
-      errors.push('La calificación debe ser entre 1 y 5')
-    }
-    if (!data.IdSuppliers) errors.push('IdSuppliers es requerido')
-    if (!data.IdServiceRequests) errors.push('IdServiceRequests es requerido')
-    if (!data.EvaluationDate) errors.push('EvaluationDate es requerido')
-
-    return errors
-  }
 }
 
-// Instancia Singleton del servicio
-const evaluationService = EvaluationService.getInstance()
+// Instancia normal (sin Singleton rígido)
+const evaluationService = new EvaluationService()
 
-// Capa de Controlador - Manejo de requests HTTP
+// ---------------------------
+// Capa de Controlador
+// ---------------------------
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     switch (req.method) {
       case 'GET':
-        await handleGet(req, res)
-        break
+        return await handleGet(req, res)
       case 'POST':
-        await handlePost(req, res)
-        break
+        return await handlePost(req, res)
       case 'PUT':
-        await handlePut(req, res)
-        break
+        return await handlePut(req, res)
       case 'DELETE':
-        await handleDelete(req, res)
-        break
+        return await handleDelete(req, res)
       default:
-        res.status(405).end()
+        return res.status(405).end()
     }
   } catch (error) {
     console.error('Error in evaluation handler:', error)
@@ -127,58 +130,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 }
 
-// Handlers específicos para cada método HTTP
+// ---------------------------
+// Handlers HTTP
+// ---------------------------
 async function handleGet(req: NextApiRequest, res: NextApiResponse) {
-  const { supplierId, requestId } = req.query
+  const supplierId = req.query.supplierId ? Number(req.query.supplierId) : undefined
+  const requestId = req.query.requestId ? Number(req.query.requestId) : undefined
 
-  const supplierIdNum = supplierId ? Number(supplierId) : undefined
-  const requestIdNum = requestId ? Number(requestId) : undefined
-
-  const evaluations = await evaluationService.getEvaluations(supplierIdNum, requestIdNum)
+  const evaluations = await evaluationService.getEvaluations(supplierId, requestId)
   res.status(200).json(evaluations)
 }
 
 async function handlePost(req: NextApiRequest, res: NextApiResponse) {
-  const { EvaluationDate, Qualification, Comments, IdSuppliers, IdServiceRequests } = req.body
-
-  // Validar datos requeridos
-  const validationErrors = evaluationService.validateEvaluationData(req.body)
-  if (validationErrors.length > 0) {
-    return res.status(400).json({ error: validationErrors.join(', ') })
-  }
-
-  const evaluation = await evaluationService.createEvaluation({
-    EvaluationDate,
-    Qualification,
-    Comments,
-    IdSuppliers,
-    IdServiceRequests
-  })
-
+  const evaluation = await evaluationService.createEvaluation(req.body)
   res.status(201).json(evaluation)
 }
 
 async function handlePut(req: NextApiRequest, res: NextApiResponse) {
-  const { Id, EvaluationDate, Qualification, Comments, IdSuppliers, IdServiceRequests } = req.body
-
-  if (!Id) {
-    return res.status(400).json({ error: 'Id es requerido' })
-  }
-
-  // Validar datos requeridos
-  const validationErrors = evaluationService.validateEvaluationData(req.body)
-  if (validationErrors.length > 0) {
-    return res.status(400).json({ error: validationErrors.join(', ') })
-  }
-
-  const evaluation = await evaluationService.updateEvaluation(Number(Id), {
-    EvaluationDate,
-    Qualification,
-    Comments,
-    IdSuppliers,
-    IdServiceRequests
-  })
-
+  const evaluation = await evaluationService.updateEvaluation(req.body)
   res.status(200).json(evaluation)
 }
 
@@ -186,23 +155,19 @@ async function handleDelete(req: NextApiRequest, res: NextApiResponse) {
   const { Id } = req.query
   const evaluationId = typeof Id === 'string' ? parseInt(Id) : Array.isArray(Id) ? parseInt(Id[0]) : Number(Id)
 
-  if (!evaluationId) {
-    return res.status(400).json({ error: 'Id es requerido' })
-  }
-
   const evaluation = await evaluationService.deleteEvaluation(evaluationId)
   res.status(200).json(evaluation)
 }
 
+// ---------------------------
 // Manejo centralizado de errores
+// ---------------------------
 function handleError(error: unknown, res: NextApiResponse) {
-  if (error instanceof Error) {
-    if (error.message.includes('calificación')) {
-      return res.status(400).json({ error: error.message })
-    }
-    if (error.message.includes('requerido')) {
-      return res.status(400).json({ error: error.message })
-    }
+  if (error instanceof ValidationError) {
+    return res.status(400).json({ error: error.message })
+  }
+  if (error instanceof NotFoundError) {
+    return res.status(404).json({ error: error.message })
   }
   res.status(500).json({ error: 'Error interno del servidor' })
 }

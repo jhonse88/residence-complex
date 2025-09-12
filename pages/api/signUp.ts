@@ -1,74 +1,77 @@
+// src/pages/api/users.ts
 import { NextApiRequest, NextApiResponse } from 'next'
 import prisma from '@/app/lib/prisma'
 import bcrypt from 'bcryptjs'
+import Joi from 'joi'
 
+// ---------------------------
+// Definición de errores tipados
+// ---------------------------
+class ValidationError extends Error {}
+class ConflictError extends Error {}
+
+// ---------------------------
+// Validación con Joi
+// ---------------------------
+const userSchema = Joi.object({
+  email: Joi.string().email().required().messages({
+    'string.email': 'El email no es válido',
+    'any.required': 'El email es requerido'
+  }),
+  password: Joi.string().min(6).required().messages({
+    'string.min': 'La contraseña debe tener al menos 6 caracteres',
+    'any.required': 'La contraseña es requerida'
+  })
+})
+
+// ---------------------------
 // Capa de Servicio - Lógica de negocio
+// ---------------------------
 class UserService {
   async createUser(email: string, password: string) {
-    // Validación básica
-    if (!email || !password) {
-      throw new Error('Email and password are required')
+    const { error, value } = userSchema.validate({ email, password }, { abortEarly: false })
+    if (error) {
+      throw new ValidationError(error.details.map(d => d.message).join(', '))
     }
 
-    const existingUser = await prisma.user.findUnique({
-      where: { email }
-    })
-
+    const existingUser = await prisma.user.findUnique({ where: { email: value.email } })
     if (existingUser) {
-      throw new Error('User already exists')
+      throw new ConflictError('El usuario ya existe')
     }
 
-    const passwordHash = bcrypt.hashSync(password, 10)
+    const passwordHash = bcrypt.hashSync(value.password, 10)
 
-    const user = await prisma.user.create({
-      data: { email, passwordHash }
+    return prisma.user.create({
+      data: { email: value.email, passwordHash }
     })
-
-    return user
-  }
-
-  async validateUserData(email: string, password: string) {
-    const errors: string[] = []
-
-    if (!email) errors.push('Email is required')
-    if (!password) errors.push('Password is required')
-    if (password && password.length < 6) errors.push('Password must be at least 6 characters')
-
-    return errors
   }
 }
 
-// Instancia Singleton del servicio
+// Instancia normal (sin Singleton rígido)
 const userService = new UserService()
 
+// ---------------------------
 // Capa de Controlador - Manejo de requests HTTP
+// ---------------------------
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' })
-  }
-
-  const { email, password } = req.body
-
   try {
-    // Validación de datos
-    const validationErrors = await userService.validateUserData(email, password)
-    if (validationErrors.length > 0) {
-      return res.status(400).json({ message: validationErrors.join(', ') })
+    if (req.method !== 'POST') {
+      return res.status(405).json({ message: 'Método no permitido' })
     }
 
-    // Creación de usuario
+    const { email, password } = req.body
+
     await userService.createUser(email, password)
 
-    return res.status(201).json({ message: 'User created successfully' })
+    return res.status(201).json({ message: 'Usuario creado correctamente' })
   } catch (error) {
-    if (error instanceof Error) {
-      if (error.message === 'User already exists') {
-        return res.status(400).json({ message: error.message })
-      }
-      if (error.message === 'Email and password are required') {
-        return res.status(400).json({ message: error.message })
-      }
+    if (error instanceof ValidationError) {
+      return res.status(400).json({ error: error.message })
     }
-    return res.status(500).json({ message: 'Internal server error' })
+    if (error instanceof ConflictError) {
+      return res.status(409).json({ error: error.message })
+    }
+    console.error('Error en creación de usuario:', error)
+    return res.status(500).json({ error: 'Error interno del servidor' })
   }
 }
