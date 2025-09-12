@@ -56,7 +56,7 @@ export default function SupplierTable() {
     State: true,
   });
 
-  const supplierPerPage = 7;
+  const supplierPerPage = 10;
   const [firstIndex, setFirstIndex] = useState(0);
   const [lastIndex, setLastIndex] = useState(supplierPerPage);
   const [searchTerm, setSearchTerm] = useState("");
@@ -71,7 +71,7 @@ export default function SupplierTable() {
     onClose: onCloseServiceRequestModal,
   } = useDisclosure();
 
-  const GetSuppliers = async (startIndex: number = 0, endIndex: number = 7) => {
+  const GetSuppliers = async (startIndex: number = 0, endIndex: number = 10) => {
     try {
       const res = await axios.get("/api/suppliers", {
         params: { searchTerm, startIndex, endIndex },

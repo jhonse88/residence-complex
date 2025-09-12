@@ -37,7 +37,9 @@ export default async function handler(
       // Obtener proveedores paginados
       const suppliers = await prisma.suppliers.findMany({
         where: whereCondition,
-        orderBy: { Name: 'asc' },
+        orderBy: {
+          Id: 'desc'
+        },
         skip,
         take,
         include: {
