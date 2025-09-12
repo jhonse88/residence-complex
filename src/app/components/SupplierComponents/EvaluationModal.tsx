@@ -110,6 +110,7 @@ const EvaluationModal = ({
       onEvaluationSaved()
       setIsEditing(false) // Volver al modo vista después de guardar
       GetSuppliers()
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       toast({
         title: 'Error',
