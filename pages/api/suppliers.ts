@@ -1,20 +1,18 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import prisma from '@/app/lib/prisma'
 import { NextApiRequest, NextApiResponse } from 'next'
 
-// Capa de Servicio - Lógica de negocio de proveedores
-class SupplierService {
-  private static instance: SupplierService
+// Interface base para el servicio de proveedores
+interface ISupplierService {
+  getSuppliers(searchTerm: string, skip: number, take: number): Promise<any>
+  createSupplier(data: { Name: string; Phone: string; Email: string; State?: boolean }): Promise<any>
+  updateSupplier(Id: number, data: { Name: string; Phone: string; Email: string; State: boolean }): Promise<any>
+  deleteSupplier(Id: number): Promise<any>
+}
 
-  public static getInstance(): SupplierService {
-    if (!SupplierService.instance) {
-      SupplierService.instance = new SupplierService()
-    }
-    return SupplierService.instance
-  }
-
-  // GET - Obtener proveedores con paginación y búsqueda (CORREGIDO)
+// Implementación base del servicio
+class SupplierService implements ISupplierService {
   async getSuppliers(searchTerm: string = '', skip: number = 0, take: number = 10) {
-    // Validar que take sea positivo
     if (take <= 0) {
       return {
         suppliers: [],
@@ -24,10 +22,8 @@ class SupplierService {
       }
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let whereCondition: any = {}
 
-    // Filtro de búsqueda
     if (searchTerm) {
       whereCondition = {
         Name: {
@@ -81,7 +77,6 @@ class SupplierService {
     }
   }
 
-  // POST - Crear nuevo proveedor
   async createSupplier(data: { Name: string; Phone: string; Email: string; State?: boolean }) {
     return await prisma.suppliers.create({
       data: {
@@ -93,7 +88,6 @@ class SupplierService {
     })
   }
 
-  // PUT - Actualizar proveedor
   async updateSupplier(Id: number, data: { Name: string; Phone: string; Email: string; State: boolean }) {
     return await prisma.suppliers.update({
       where: { Id },
@@ -106,7 +100,6 @@ class SupplierService {
     })
   }
 
-  // DELETE - Eliminar lógicamente el proveedor (cambiar State a false)
   async deleteSupplier(Id: number) {
     return await prisma.suppliers.update({
       where: { Id },
@@ -117,8 +110,190 @@ class SupplierService {
   }
 }
 
-// Instancia Singleton del servicio
-const supplierService = SupplierService.getInstance()
+// Decorator base abstracto
+abstract class SupplierServiceDecorator implements ISupplierService {
+  protected wrappedService: ISupplierService
+
+  constructor(service: ISupplierService) {
+    this.wrappedService = service
+  }
+
+  async getSuppliers(searchTerm: string, skip: number, take: number) {
+    return this.wrappedService.getSuppliers(searchTerm, skip, take)
+  }
+
+  async createSupplier(data: { Name: string; Phone: string; Email: string; State?: boolean }) {
+    return this.wrappedService.createSupplier(data)
+  }
+
+  async updateSupplier(Id: number, data: { Name: string; Phone: string; Email: string; State: boolean }) {
+    return this.wrappedService.updateSupplier(Id, data)
+  }
+
+  async deleteSupplier(Id: number) {
+    return this.wrappedService.deleteSupplier(Id)
+  }
+}
+
+// Decorator para logging
+class LoggingSupplierServiceDecorator extends SupplierServiceDecorator {
+  async getSuppliers(searchTerm: string, skip: number, take: number) {
+    console.log(`[SUPPLIER SERVICE] Getting suppliers - search: "${searchTerm}", skip: ${skip}, take: ${take}`)
+    const startTime = Date.now()
+
+    try {
+      const result = await super.getSuppliers(searchTerm, skip, take)
+      const duration = Date.now() - startTime
+      console.log(`[SUPPLIER SERVICE] Get suppliers completed in ${duration}ms - found ${result.count} items`)
+      return result
+    } catch (error) {
+      console.error(`[SUPPLIER SERVICE] Error getting suppliers: ${error}`)
+      throw error
+    }
+  }
+
+  async createSupplier(data: { Name: string; Phone: string; Email: string; State?: boolean }) {
+    console.log(`[SUPPLIER SERVICE] Creating supplier: ${data.Name}`)
+    const startTime = Date.now()
+
+    try {
+      const result = await super.createSupplier(data)
+      const duration = Date.now() - startTime
+      console.log(`[SUPPLIER SERVICE] Supplier created in ${duration}ms - ID: ${result.Id}`)
+      return result
+    } catch (error) {
+      console.error(`[SUPPLIER SERVICE] Error creating supplier: ${error}`)
+      throw error
+    }
+  }
+
+  async updateSupplier(Id: number, data: { Name: string; Phone: string; Email: string; State: boolean }) {
+    console.log(`[SUPPLIER SERVICE] Updating supplier ID: ${Id}`)
+    const startTime = Date.now()
+
+    try {
+      const result = await super.updateSupplier(Id, data)
+      const duration = Date.now() - startTime
+      console.log(`[SUPPLIER SERVICE] Supplier updated in ${duration}ms`)
+      return result
+    } catch (error) {
+      console.error(`[SUPPLIER SERVICE] Error updating supplier: ${error}`)
+      throw error
+    }
+  }
+
+  async deleteSupplier(Id: number) {
+    console.log(`[SUPPLIER SERVICE] Deleting supplier ID: ${Id}`)
+    const startTime = Date.now()
+
+    try {
+      const result = await super.deleteSupplier(Id)
+      const duration = Date.now() - startTime
+      console.log(`[SUPPLIER SERVICE] Supplier deleted in ${duration}ms`)
+      return result
+    } catch (error) {
+      console.error(`[SUPPLIER SERVICE] Error deleting supplier: ${error}`)
+      throw error
+    }
+  }
+}
+
+// Decorator para validación
+class ValidationSupplierServiceDecorator extends SupplierServiceDecorator {
+  async createSupplier(data: { Name: string; Phone: string; Email: string; State?: boolean }) {
+    this.validateSupplierData(data)
+    return super.createSupplier(data)
+  }
+
+  async updateSupplier(Id: number, data: { Name: string; Phone: string; Email: string; State: boolean }) {
+    this.validateSupplierData(data)
+    if (!Id || Id <= 0) {
+      throw new Error('ID de proveedor inválido')
+    }
+    return super.updateSupplier(Id, data)
+  }
+
+  private validateSupplierData(data: { Name: string; Phone: string; Email: string }) {
+    if (!data.Name || data.Name.trim().length === 0) {
+      throw new Error('El nombre del proveedor es requerido')
+    }
+
+    if (!data.Phone || data.Phone.trim().length === 0) {
+      throw new Error('El teléfono del proveedor es requerido')
+    }
+
+    if (!data.Email || data.Email.trim().length === 0) {
+      throw new Error('El email del proveedor es requerido')
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(data.Email)) {
+      throw new Error('El formato del email es inválido')
+    }
+  }
+}
+
+// Decorator para caching (ejemplo básico)
+class CachingSupplierServiceDecorator extends SupplierServiceDecorator {
+  private cache = new Map<string, { data: any; timestamp: number }>()
+  private readonly CACHE_DURATION = 5 * 60 * 1000 // 5 minutos
+
+  async getSuppliers(searchTerm: string, skip: number, take: number) {
+    const cacheKey = `suppliers_${searchTerm}_${skip}_${take}`
+    const cached = this.cache.get(cacheKey)
+
+    if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
+      console.log(`[CACHE] Returning cached suppliers for key: ${cacheKey}`)
+      return cached.data
+    }
+
+    const result = await super.getSuppliers(searchTerm, skip, take)
+
+    this.cache.set(cacheKey, {
+      data: result,
+      timestamp: Date.now()
+    })
+
+    return result
+  }
+
+  async createSupplier(data: { Name: string; Phone: string; Email: string; State?: boolean }) {
+    this.clearCache()
+    return super.createSupplier(data)
+  }
+
+  async updateSupplier(Id: number, data: { Name: string; Phone: string; Email: string; State: boolean }) {
+    this.clearCache()
+    return super.updateSupplier(Id, data)
+  }
+
+  async deleteSupplier(Id: number) {
+    this.clearCache()
+    return super.deleteSupplier(Id)
+  }
+
+  private clearCache() {
+    this.cache.clear()
+    console.log('[CACHE] Cache cleared due to data modification')
+  }
+}
+
+// Factory para crear el servicio con los decoradores deseados
+class SupplierServiceFactory {
+  static createService(): ISupplierService {
+    const baseService = new SupplierService()
+
+    // Aplicar decoradores en el orden deseado
+    let service: ISupplierService = new ValidationSupplierServiceDecorator(baseService)
+    service = new LoggingSupplierServiceDecorator(service)
+    service = new CachingSupplierServiceDecorator(service)
+
+    return service
+  }
+}
+
+// Instancia del servicio decorado
+const supplierService = SupplierServiceFactory.createService()
 
 // Capa de Controlador - Manejo de requests HTTP
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -150,12 +325,10 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
   try {
     const { searchTerm, startIndex = '0', endIndex = '10' } = req.query
 
-    // Validar y convertir parámetros
     const searchTermString = (Array.isArray(searchTerm) ? searchTerm[0] : searchTerm) || ''
     const skip = Math.max(0, Number(startIndex))
     const take = Math.max(1, Number(endIndex) - Number(startIndex))
 
-    // Validar que los parámetros sean números válidos
     if (isNaN(skip) || isNaN(take) || skip < 0 || take <= 0) {
       return res.status(400).json({
         error: 'Parámetros de paginación inválidos',
@@ -183,7 +356,7 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
     res.status(201).json(supplier)
   } catch (error) {
     console.error('Error in handlePost:', error)
-    res.status(500).json({ error: 'Error al crear proveedor' })
+    res.status(400).json({ error: error instanceof Error ? error.message : 'Error al crear proveedor' })
   }
 }
 
@@ -199,7 +372,7 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse) {
     res.status(200).json(supplier)
   } catch (error) {
     console.error('Error in handlePut:', error)
-    res.status(500).json({ error: 'Error al actualizar proveedor' })
+    res.status(400).json({ error: error instanceof Error ? error.message : 'Error al actualizar proveedor' })
   }
 }
 
