@@ -18,44 +18,55 @@ interface PaymentQuery {
   take?: number
 }
 
+// Interface Builder para pagos
+interface PaymentBuilder {
+  reset(): PaymentBuilder
+  setPaymentDate(date: Date | string): PaymentBuilder
+  setAmount(amount: number): PaymentBuilder
+  setPaymentMethod(method: string): PaymentBuilder
+  setContractId(contractId: number): PaymentBuilder
+  setOldPaymentId(id: number): PaymentBuilder
+  execute(): Promise<any>
+}
+
 // Builder para transacciones de pago
-class PaymentTransactionBuilder {
-  private paymentData: Partial<PaymentData> = {}
-  private oldPaymentId?: number
-  private isUpdate: boolean = false
+class PaymentTransactionBuilder implements PaymentBuilder {
+  protected paymentData: Partial<PaymentData> = {}
+  protected oldPaymentId?: number
+  protected isUpdate: boolean = false
 
   constructor() {
     this.reset()
   }
 
-  reset() {
+  reset(): PaymentTransactionBuilder {
     this.paymentData = {}
     this.oldPaymentId = undefined
     this.isUpdate = false
     return this
   }
 
-  setPaymentDate(date: Date | string) {
+  setPaymentDate(date: Date | string): PaymentTransactionBuilder {
     this.paymentData.PaymentDate = date
     return this
   }
 
-  setAmount(amount: number) {
+  setAmount(amount: number): PaymentTransactionBuilder {
     this.paymentData.Amount = amount
     return this
   }
 
-  setPaymentMethod(method: string) {
+  setPaymentMethod(method: string): PaymentTransactionBuilder {
     this.paymentData.PaymentMethod = method
     return this
   }
 
-  setContractId(contractId: number) {
+  setContractId(contractId: number): PaymentTransactionBuilder {
     this.paymentData.IdContracts = contractId
     return this
   }
 
-  setOldPaymentId(id: number) {
+  setOldPaymentId(id: number): PaymentTransactionBuilder {
     this.oldPaymentId = id
     this.isUpdate = true
     return this
@@ -81,7 +92,7 @@ class PaymentTransactionBuilder {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private async executeCreate(prisma: any) {
+  protected async executeCreate(prisma: any) {
     const payment = await prisma.pay.create({
       data: {
         PaymentDate: new Date(this.paymentData.PaymentDate!),
@@ -101,7 +112,7 @@ class PaymentTransactionBuilder {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private async executeUpdate(prisma: any) {
+  protected async executeUpdate(prisma: any) {
     const oldPayment = await prisma.pay.findUnique({
       where: { Id: this.oldPaymentId }
     })
@@ -129,13 +140,51 @@ class PaymentTransactionBuilder {
   }
 }
 
+// Director para orquestar la construcción de pagos
+class PaymentDirector {
+  private builder: PaymentBuilder;
+
+  constructor(builder: PaymentBuilder) {
+    this.builder = builder;
+  }
+
+  public changeBuilder(builder: PaymentBuilder): void {
+    this.builder = builder;
+  }
+
+  // Construye un nuevo pago
+  public makePayment(data: PaymentData): Promise<any> {
+    return this.builder
+      .reset()
+      .setPaymentDate(data.PaymentDate)
+      .setAmount(data.Amount)
+      .setPaymentMethod(data.PaymentMethod)
+      .setContractId(data.IdContracts)
+      .execute();
+  }
+
+  // Construye una actualización de pago
+  public updatePayment(id: number, data: PaymentData): Promise<any> {
+    return this.builder
+      .reset()
+      .setOldPaymentId(id)
+      .setPaymentDate(data.PaymentDate)
+      .setAmount(data.Amount)
+      .setPaymentMethod(data.PaymentMethod)
+      .setContractId(data.IdContracts)
+      .execute();
+  }
+}
+
 // Capa de Servicio con Singleton
 class PaymentService {
   private static instance: PaymentService
-  private transactionBuilder: PaymentTransactionBuilder
+  private transactionBuilder: PaymentBuilder
+  private paymentDirector: PaymentDirector
 
   private constructor() {
     this.transactionBuilder = new PaymentTransactionBuilder()
+    this.paymentDirector = new PaymentDirector(this.transactionBuilder)
   }
 
   public static getInstance(): PaymentService {
@@ -196,27 +245,14 @@ class PaymentService {
     }
   }
 
-  // POST - Crear pago usando Builder
+  // POST - Crear pago usando Director
   async createPayment(data: PaymentData) {
-    return await this.transactionBuilder
-      .reset()
-      .setPaymentDate(data.PaymentDate)
-      .setAmount(data.Amount)
-      .setPaymentMethod(data.PaymentMethod)
-      .setContractId(data.IdContracts)
-      .execute()
+    return await this.paymentDirector.makePayment(data)
   }
 
-  // PUT - Actualizar pago usando Builder
+  // PUT - Actualizar pago usando Director
   async updatePayment(id: number, data: PaymentData) {
-    return await this.transactionBuilder
-      .reset()
-      .setOldPaymentId(id)
-      .setPaymentDate(data.PaymentDate)
-      .setAmount(data.Amount)
-      .setPaymentMethod(data.PaymentMethod)
-      .setContractId(data.IdContracts)
-      .execute()
+    return await this.paymentDirector.updatePayment(id, data)
   }
 
   // DELETE - Eliminar pago
