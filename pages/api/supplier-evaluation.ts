@@ -1,4 +1,4 @@
-import prisma from '@/app/lib/prisma'
+import { ServiceFactory } from '../../src/infrastructure/config/ServiceFactory'
 import { NextApiRequest, NextApiResponse } from 'next'
 
 // Interface para los datos de evaluación
@@ -22,7 +22,7 @@ class EvaluationService {
   }
 
   // GET - Obtener evaluaciones con filtros
-  async getEvaluations(supplierId?: number, requestId?: number) {
+  async getEvaluations(prisma: any, supplierId?: number, requestId?: number) {
     return await prisma.supplierEvaluation.findMany({
       where: {
         ...(supplierId && { IdSuppliers: supplierId }),
@@ -37,7 +37,7 @@ class EvaluationService {
   }
 
   // POST - Crear nueva evaluación
-  async createEvaluation(data: EvaluationData) {
+  async createEvaluation(prisma: any, data: EvaluationData) {
     // Validar calificación
     if (data.Qualification < 1 || data.Qualification > 5) {
       throw new Error('La calificación debe ser entre 1 y 5')
@@ -59,7 +59,7 @@ class EvaluationService {
   }
 
   // PUT - Actualizar evaluación
-  async updateEvaluation(id: number, data: EvaluationData) {
+  async updateEvaluation(prisma: any, id: number, data: EvaluationData) {
     // Validar calificación
     if (data.Qualification < 1 || data.Qualification > 5) {
       throw new Error('La calificación debe ser entre 1 y 5')
@@ -78,7 +78,7 @@ class EvaluationService {
   }
 
   // DELETE - Eliminar evaluación
-  async deleteEvaluation(id: number) {
+  async deleteEvaluation(prisma: any, id: number) {
     return await prisma.supplierEvaluation.delete({
       where: { Id: id }
     })
@@ -104,6 +104,8 @@ const evaluationService = EvaluationService.getInstance()
 
 // Capa de Controlador - Manejo de requests HTTP
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  const prisma = ServiceFactory.getPrismaClient()
+  
   try {
     switch (req.method) {
       case 'GET':
@@ -124,21 +126,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   } catch (error) {
     console.error('Error in evaluation handler:', error)
     handleError(error, res)
+  } finally {
+    await ServiceFactory.disconnect()
   }
 }
 
 // Handlers específicos para cada método HTTP
 async function handleGet(req: NextApiRequest, res: NextApiResponse) {
+  const prisma = ServiceFactory.getPrismaClient()
   const { supplierId, requestId } = req.query
 
   const supplierIdNum = supplierId ? Number(supplierId) : undefined
   const requestIdNum = requestId ? Number(requestId) : undefined
 
-  const evaluations = await evaluationService.getEvaluations(supplierIdNum, requestIdNum)
+  const evaluations = await evaluationService.getEvaluations(prisma, supplierIdNum, requestIdNum)
   res.status(200).json(evaluations)
 }
 
 async function handlePost(req: NextApiRequest, res: NextApiResponse) {
+  const prisma = ServiceFactory.getPrismaClient()
   const { EvaluationDate, Qualification, Comments, IdSuppliers, IdServiceRequests } = req.body
 
   // Validar datos requeridos
@@ -147,7 +153,7 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
     return res.status(400).json({ error: validationErrors.join(', ') })
   }
 
-  const evaluation = await evaluationService.createEvaluation({
+  const evaluation = await evaluationService.createEvaluation(prisma, {
     EvaluationDate,
     Qualification,
     Comments,
@@ -159,6 +165,7 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
 }
 
 async function handlePut(req: NextApiRequest, res: NextApiResponse) {
+  const prisma = ServiceFactory.getPrismaClient()
   const { Id, EvaluationDate, Qualification, Comments, IdSuppliers, IdServiceRequests } = req.body
 
   if (!Id) {
@@ -171,7 +178,7 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse) {
     return res.status(400).json({ error: validationErrors.join(', ') })
   }
 
-  const evaluation = await evaluationService.updateEvaluation(Number(Id), {
+  const evaluation = await evaluationService.updateEvaluation(prisma, Number(Id), {
     EvaluationDate,
     Qualification,
     Comments,
@@ -183,6 +190,7 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse) {
 }
 
 async function handleDelete(req: NextApiRequest, res: NextApiResponse) {
+  const prisma = ServiceFactory.getPrismaClient()
   const { Id } = req.query
   const evaluationId = typeof Id === 'string' ? parseInt(Id) : Array.isArray(Id) ? parseInt(Id[0]) : Number(Id)
 
@@ -190,7 +198,7 @@ async function handleDelete(req: NextApiRequest, res: NextApiResponse) {
     return res.status(400).json({ error: 'Id es requerido' })
   }
 
-  const evaluation = await evaluationService.deleteEvaluation(evaluationId)
+  const evaluation = await evaluationService.deleteEvaluation(prisma, evaluationId)
   res.status(200).json(evaluation)
 }
 

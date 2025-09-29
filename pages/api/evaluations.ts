@@ -1,11 +1,14 @@
-import prisma from '@/app/lib/prisma'
+import { ServiceFactory } from '../../src/infrastructure/config/ServiceFactory'
 import { NextApiRequest, NextApiResponse } from 'next'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { Id, EvaluationDate, Qualification, Comments, IdSuppliers, IdServiceRequests } = req.body
+  const prisma = ServiceFactory.getPrismaClient()
+  
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { Id, EvaluationDate, Qualification, Comments, IdSuppliers, IdServiceRequests } = req.body
 
-  if (req.method === 'GET') {
+    if (req.method === 'GET') {
     try {
       const { serviceRequestId } = req.query
 
@@ -103,5 +106,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   } else {
     res.setHeader('Allow', ['GET', 'POST', 'PATCH', 'DELETE'])
     res.status(405).end(`Method ${req.method} Not Allowed`)
+  }
+  } catch (error) {
+    console.error('Error in evaluations handler:', error)
+    res.status(500).json({ error: 'Error interno del servidor' })
+  } finally {
+    await ServiceFactory.disconnect()
   }
 }

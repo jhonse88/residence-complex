@@ -1,12 +1,12 @@
-import Navbar from './components/Navbar'
-import { Provider } from './components/Provider'
+import NavbarClient from '../presentation/components/NavbarClient'
+import { Provider } from '../presentation/components/Provider'
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html>
       <body>
         <Provider>
-          <Navbar initialSession={null} />
+          <NavbarClient />
           <div className='pt-8'></div>
           {children}
         </Provider>

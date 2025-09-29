@@ -1,5 +1,5 @@
-import prisma from '@/app/lib/prisma'
 import { NextApiRequest, NextApiResponse } from 'next'
+import { ServiceFactory } from '../../../src/infrastructure/config/ServiceFactory'
 
 // Interface para la respuesta
 interface ContractWithSupplier {
@@ -17,54 +17,6 @@ interface ContractWithSupplier {
   }
 }
 
-// Capa de Servicio con Singleton
-class ContractDetailService {
-  private static instance: ContractDetailService
-
-  public static getInstance(): ContractDetailService {
-    if (!ContractDetailService.instance) {
-      ContractDetailService.instance = new ContractDetailService()
-    }
-    return ContractDetailService.instance
-  }
-
-  // GET - Obtener contrato por ID con información del proveedor
-  async getContractById(id: number): Promise<ContractWithSupplier | null> {
-    const contract = await prisma.contracts.findUnique({
-      where: { Id: id },
-      include: {
-        Suppliers: {
-          select: {
-            Id: true,
-            Name: true,
-            Phone: true
-          }
-        }
-      }
-    })
-
-    return contract as ContractWithSupplier | null
-  }
-
-  // Validar ID del contrato
-  validateContractId(id: unknown): { isValid: boolean; error?: string } {
-    if (id === undefined || id === null) {
-      return { isValid: false, error: 'ID es requerido' }
-    }
-
-    const idNumber = Number(id)
-    if (isNaN(idNumber) || idNumber <= 0) {
-      return { isValid: false, error: 'ID debe ser un número válido' }
-    }
-
-    return { isValid: true }
-  }
-}
-
-// Instancia Singleton del servicio
-const contractDetailService = ContractDetailService.getInstance()
-
-// Capa de Controlador
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     if (req.method === 'GET') {
@@ -75,26 +27,51 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   } catch (error) {
     console.error('Error in contract detail handler:', error)
-    res.status(500).json({ error: 'Error interno del servidor' })
+    handleError(error, res)
+  } finally {
+    await ServiceFactory.disconnect()
   }
 }
 
-// Handler específico para GET
 async function handleGet(req: NextApiRequest, res: NextApiResponse) {
   const { id } = req.query
 
   // Validar ID
-  const validation = contractDetailService.validateContractId(id)
-  if (!validation.isValid) {
-    return res.status(400).json({ error: validation.error })
+  if (!id || Array.isArray(id)) {
+    return res.status(400).json({ error: 'ID es requerido' })
   }
 
   const contractId = Number(id)
-  const contract = await contractDetailService.getContractById(contractId)
+  if (isNaN(contractId) || contractId <= 0) {
+    return res.status(400).json({ error: 'ID debe ser un número válido' })
+  }
+
+  const prisma = ServiceFactory.getPrismaClient()
+  const contract = await prisma.contracts.findUnique({
+    where: { Id: contractId },
+    include: {
+      Suppliers: {
+        select: {
+          Id: true,
+          Name: true,
+          Phone: true
+        }
+      }
+    }
+  })
 
   if (!contract) {
     return res.status(404).json({ error: 'Contrato no encontrado' })
   }
 
   res.status(200).json(contract)
+}
+
+function handleError(error: unknown, res: NextApiResponse) {
+  if (error instanceof Error) {
+    if (error.message.includes('es requerido') || error.message.includes('debe ser')) {
+      return res.status(400).json({ error: error.message })
+    }
+  }
+  res.status(500).json({ error: 'Error interno del servidor' })
 }

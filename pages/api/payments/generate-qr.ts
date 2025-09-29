@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next'
-import prisma from '@/app/lib/prisma'
+import { ServiceFactory } from '../../../src/infrastructure/config/ServiceFactory'
 import QRCode from 'qrcode'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -10,6 +10,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { contractId, amount } = req.body
 
   try {
+    const prisma = ServiceFactory.getPrismaClient()
+    
     // Obtener el contrato con la información del proveedor
     const contract = await prisma.contracts.findUnique({
       where: { Id: Number(contractId) },
@@ -63,5 +65,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       error: 'Error al generar código QR',
       details: error instanceof Error ? error.message : 'Error desconocido'
     })
+  } finally {
+    await ServiceFactory.disconnect()
   }
 }

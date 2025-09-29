@@ -1,14 +1,16 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
-import prisma from '@/app/lib/prisma'
+import { ServiceFactory } from '../../src/infrastructure/config/ServiceFactory'
 import { NextApiRequest, NextApiResponse } from 'next'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { Id, ApplicationDate, Description, IdSuppliers, EvaluationDate, Qualification, Comments, IdServiceRequests } =
-    req.body
+  const prisma = ServiceFactory.getPrismaClient()
+  
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { Id, ApplicationDate, Description, IdSuppliers, EvaluationDate, Qualification, Comments, IdServiceRequests } =
+      req.body
 
-  if (req.method === 'GET') {
-    try {
+    if (req.method === 'GET') {
       const { supplierId, currentId, direction, includeEvaluation, skip, take } = req.query
 
       // Modo modal: navegación individual
@@ -69,12 +71,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         currentPage: Math.floor(parsedSkip / parsedTake) + 1,
         totalPages: Math.ceil(totalCount / parsedTake)
       })
-    } catch (error) {
-      console.error('Error fetching service requests:', error)
-      res.status(500).json({ error: 'Error al obtener solicitudes de servicio' })
-    }
-  } else if (req.method === 'POST') {
-    try {
+    } else if (req.method === 'POST') {
       // Validación básica
       if (!ApplicationDate || !Description || !IdSuppliers) {
         return res.status(400).json({ error: 'Faltan campos requeridos' })
@@ -93,12 +90,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })
 
       res.status(201).json(newRequest)
-    } catch (error) {
-      console.error('Error creating service request:', error)
-      res.status(500).json({ error: 'Error al crear solicitud de servicio' })
-    }
-  } else if (req.method === 'PUT') {
-    try {
+    } else if (req.method === 'PUT') {
       if (!Id || !ApplicationDate || !Description || !IdSuppliers) {
         return res.status(400).json({ error: 'Faltan campos requeridos' })
       }
@@ -117,12 +109,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })
 
       res.status(200).json(updatedRequest)
-    } catch (error) {
-      console.error('Error updating service request:', error)
-      res.status(500).json({ error: 'Error al actualizar solicitud' })
-    }
-  } else if (req.method === 'DELETE') {
-    try {
+    } else if (req.method === 'DELETE') {
       const { Id } = req.query
       if (!Id) {
         return res.status(400).json({ error: 'ID no proporcionado' })
@@ -146,12 +133,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })
 
       res.status(200).json(deletedRequest)
-    } catch (error) {
-      console.error('Error deleting service request:', error)
-      res.status(500).json({ error: 'Error al eliminar solicitud' })
-    }
-  } else if (req.method === 'PATCH') {
-    try {
+    } else if (req.method === 'PATCH') {
       // Validación para evaluación
       if (!Id || !Qualification) {
         return res.status(400).json({ error: 'Faltan campos requeridos' })
@@ -205,12 +187,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         ...evaluation,
         ServiceRequest: evaluation.ServiceRequests
       })
-    } catch (error) {
-      console.error('Error saving evaluation:', error)
-      res.status(500).json({ error: 'Error al guardar evaluación' })
+    } else {
+      res.setHeader('Allow', ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
+      res.status(405).end(`Method ${req.method} Not Allowed`)
     }
-  } else {
-    res.setHeader('Allow', ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
-    res.status(405).end(`Method ${req.method} Not Allowed`)
+  } catch (error) {
+    console.error('Error in serviceRequests handler:', error)
+    res.status(500).json({ error: 'Error interno del servidor' })
+  } finally {
+    await ServiceFactory.disconnect()
   }
 }

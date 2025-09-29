@@ -1,272 +1,17 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-import prisma from '@/app/lib/prisma'
 import { NextApiRequest, NextApiResponse } from 'next'
+import { ServiceFactory } from '../../../src/infrastructure/config/ServiceFactory'
+import { CreatePaymentDto, UpdatePaymentDto } from '../../../src/application/dto/PaymentDto'
 
-// Interfaces para type safety
-interface PaymentData {
-  PaymentDate: Date | string
-  Amount: number
-  PaymentMethod: string
-  IdContracts: number
-}
+/**
+ * API Route para manejo de pagos
+ * Implementa los siguientes patrones de diseño:
+ * - Singleton: PaymentBuilderService se instancia una sola vez
+ * - Builder: Construcción paso a paso de objetos Payment complejos
+ * - Director: Orquesta la construcción usando el Builder
+ * - Repository: Abstracción de acceso a datos
+ * - Service Factory: Inyección de dependencias
+ */
 
-interface PaymentQuery {
-  contractId?: number
-  currentId?: number
-  direction?: string
-  skip?: number
-  take?: number
-}
-
-// Interface Builder para pagos
-interface PaymentBuilder {
-  reset(): PaymentBuilder
-  setPaymentDate(date: Date | string): PaymentBuilder
-  setAmount(amount: number): PaymentBuilder
-  setPaymentMethod(method: string): PaymentBuilder
-  setContractId(contractId: number): PaymentBuilder
-  setOldPaymentId(id: number): PaymentBuilder
-  execute(): Promise<any>
-}
-
-// Builder para transacciones de pago
-class PaymentTransactionBuilder implements PaymentBuilder {
-  protected paymentData: Partial<PaymentData> = {}
-  protected oldPaymentId?: number
-  protected isUpdate: boolean = false
-
-  constructor() {
-    this.reset()
-  }
-
-  reset(): PaymentTransactionBuilder {
-    this.paymentData = {}
-    this.oldPaymentId = undefined
-    this.isUpdate = false
-    return this
-  }
-
-  setPaymentDate(date: Date | string): PaymentTransactionBuilder {
-    this.paymentData.PaymentDate = date
-    return this
-  }
-
-  setAmount(amount: number): PaymentTransactionBuilder {
-    this.paymentData.Amount = amount
-    return this
-  }
-
-  setPaymentMethod(method: string): PaymentTransactionBuilder {
-    this.paymentData.PaymentMethod = method
-    return this
-  }
-
-  setContractId(contractId: number): PaymentTransactionBuilder {
-    this.paymentData.IdContracts = contractId
-    return this
-  }
-
-  setOldPaymentId(id: number): PaymentTransactionBuilder {
-    this.oldPaymentId = id
-    this.isUpdate = true
-    return this
-  }
-
-  async execute() {
-    if (
-      !this.paymentData.PaymentDate ||
-      !this.paymentData.Amount ||
-      !this.paymentData.PaymentMethod ||
-      !this.paymentData.IdContracts
-    ) {
-      throw new Error('Faltan campos requeridos')
-    }
-
-    return await prisma.$transaction(async prisma => {
-      if (this.isUpdate && this.oldPaymentId) {
-        return this.executeUpdate(prisma)
-      } else {
-        return this.executeCreate(prisma)
-      }
-    })
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  protected async executeCreate(prisma: any) {
-    const payment = await prisma.pay.create({
-      data: {
-        PaymentDate: new Date(this.paymentData.PaymentDate!),
-        Amount: Number(this.paymentData.Amount),
-        PaymentMethod: this.paymentData.PaymentMethod!,
-        IdContracts: Number(this.paymentData.IdContracts)
-      },
-      include: { Contracts: true }
-    })
-
-    await prisma.contracts.update({
-      where: { Id: Number(this.paymentData.IdContracts) },
-      data: { Debt: { decrement: Number(this.paymentData.Amount) } }
-    })
-
-    return payment
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  protected async executeUpdate(prisma: any) {
-    const oldPayment = await prisma.pay.findUnique({
-      where: { Id: this.oldPaymentId }
-    })
-
-    const payment = await prisma.pay.update({
-      where: { Id: this.oldPaymentId },
-      data: {
-        PaymentDate: new Date(this.paymentData.PaymentDate!),
-        Amount: Number(this.paymentData.Amount),
-        PaymentMethod: this.paymentData.PaymentMethod!,
-        IdContracts: Number(this.paymentData.IdContracts)
-      },
-      include: { Contracts: true }
-    })
-
-    if (oldPayment) {
-      const difference = Number(this.paymentData.Amount) - oldPayment.Amount
-      await prisma.contracts.update({
-        where: { Id: Number(this.paymentData.IdContracts) },
-        data: { Debt: { decrement: difference } }
-      })
-    }
-
-    return payment
-  }
-}
-
-// Director para orquestar la construcción de pagos
-class PaymentDirector {
-  private builder: PaymentBuilder;
-
-  constructor(builder: PaymentBuilder) {
-    this.builder = builder;
-  }
-
-  public changeBuilder(builder: PaymentBuilder): void {
-    this.builder = builder;
-  }
-
-  // Construye un nuevo pago
-  public makePayment(data: PaymentData): Promise<any> {
-    return this.builder
-      .reset()
-      .setPaymentDate(data.PaymentDate)
-      .setAmount(data.Amount)
-      .setPaymentMethod(data.PaymentMethod)
-      .setContractId(data.IdContracts)
-      .execute();
-  }
-
-  // Construye una actualización de pago
-  public updatePayment(id: number, data: PaymentData): Promise<any> {
-    return this.builder
-      .reset()
-      .setOldPaymentId(id)
-      .setPaymentDate(data.PaymentDate)
-      .setAmount(data.Amount)
-      .setPaymentMethod(data.PaymentMethod)
-      .setContractId(data.IdContracts)
-      .execute();
-  }
-}
-
-// Capa de Servicio con Singleton
-class PaymentService {
-  private static instance: PaymentService
-  private transactionBuilder: PaymentBuilder
-  private paymentDirector: PaymentDirector
-
-  private constructor() {
-    this.transactionBuilder = new PaymentTransactionBuilder()
-    this.paymentDirector = new PaymentDirector(this.transactionBuilder)
-  }
-
-  public static getInstance(): PaymentService {
-    if (!PaymentService.instance) {
-      PaymentService.instance = new PaymentService()
-    }
-    return PaymentService.instance
-  }
-
-  // GET - Obtener pagos
-  async getPayments(query: PaymentQuery) {
-    // Modo modal: navegación individual
-    if (query.contractId && (query.currentId || query.direction === 'last')) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let whereClause: any = { IdContracts: query.contractId }
-      let orderBy = {}
-      const take = 1
-
-      if (query.direction === 'next' && query.currentId) {
-        orderBy = { Id: 'asc' }
-        whereClause = { ...whereClause, Id: { gt: query.currentId } }
-      } else if (query.direction === 'prev' && query.currentId) {
-        orderBy = { Id: 'desc' }
-        whereClause = { ...whereClause, Id: { lt: query.currentId } }
-      } else if (query.direction === 'last') {
-        orderBy = { Id: 'desc' }
-      }
-
-      return await prisma.pay.findFirst({
-        where: whereClause,
-        orderBy,
-        take,
-        include: { Contracts: true }
-      })
-    }
-
-    // Modo tabla: paginación tradicional
-    const whereClause = query.contractId ? { IdContracts: query.contractId } : {}
-    const skip = query.skip || 0
-    const take = query.take || 10
-
-    const [payments, totalCount] = await Promise.all([
-      prisma.pay.findMany({
-        skip,
-        take,
-        where: whereClause,
-        orderBy: { PaymentDate: 'desc' },
-        include: { Contracts: true }
-      }),
-      prisma.pay.count({ where: whereClause })
-    ])
-
-    return {
-      payments,
-      count: totalCount,
-      currentPage: Math.floor(skip / take) + 1,
-      totalPages: Math.ceil(totalCount / take)
-    }
-  }
-
-  // POST - Crear pago usando Director
-  async createPayment(data: PaymentData) {
-    return await this.paymentDirector.makePayment(data)
-  }
-
-  // PUT - Actualizar pago usando Director
-  async updatePayment(id: number, data: PaymentData) {
-    return await this.paymentDirector.updatePayment(id, data)
-  }
-
-  // DELETE - Eliminar pago
-  async deletePayment(id: number) {
-    return await prisma.pay.delete({
-      where: { Id: id }
-    })
-  }
-}
-
-// Instancia Singleton del servicio
-const paymentService = PaymentService.getInstance()
-
-// Capa de Controlador
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     switch (req.method) {
@@ -288,14 +33,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   } catch (error) {
     console.error('Error in payment handler:', error)
-    res.status(500).json({ error: 'Error interno del servidor' })
+    handleError(error, res)
+  } finally {
+    await ServiceFactory.disconnect()
   }
 }
 
-// Handlers específicos
 async function handleGet(req: NextApiRequest, res: NextApiResponse) {
   const { contractId, currentId, direction, skip, take } = req.query
 
+  const paymentService = ServiceFactory.getPaymentService()
   const result = await paymentService.getPayments({
     contractId: contractId ? Number(contractId) : undefined,
     currentId: currentId ? Number(currentId) : undefined,
@@ -314,13 +61,26 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
     return res.status(400).json({ error: 'Faltan campos requeridos' })
   }
 
-  const payment = await paymentService.createPayment({
-    PaymentDate,
-    Amount: Number(Amount),
-    PaymentMethod,
-    IdContracts: Number(IdContracts)
-  })
+  const dto: CreatePaymentDto = {
+    paymentDate: PaymentDate,
+    amount: Number(Amount),
+    paymentMethod: PaymentMethod,
+    contractId: Number(IdContracts)
+  }
 
+  // Usar PaymentBuilderService con patrón Builder y Singleton
+  const paymentBuilderService = ServiceFactory.getPaymentBuilderService()
+  
+  // Ejemplo de uso directo del Builder para casos complejos
+  const builder = paymentBuilderService.getBuilder()
+  const payment = await builder
+    .reset()
+    .setPaymentDate(dto.paymentDate)
+    .setAmount(dto.amount)
+    .setPaymentMethod(dto.paymentMethod)
+    .setContractId(dto.contractId)
+    .execute()
+  
   res.status(201).json(payment)
 }
 
@@ -329,13 +89,16 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse) {
 
   if (!Id) return res.status(400).json({ error: 'ID es requerido' })
 
-  const payment = await paymentService.updatePayment(Number(Id), {
-    PaymentDate,
-    Amount: Number(Amount),
-    PaymentMethod,
-    IdContracts: Number(IdContracts)
-  })
+  const dto: CreatePaymentDto = {
+    paymentDate: PaymentDate,
+    amount: Number(Amount),
+    paymentMethod: PaymentMethod,
+    contractId: Number(IdContracts)
+  }
 
+  // Usar PaymentBuilderService con patrón Builder y Singleton
+  const paymentBuilderService = ServiceFactory.getPaymentBuilderService()
+  const payment = await paymentBuilderService.updatePayment(Number(Id), dto)
   res.status(200).json(payment)
 }
 
@@ -345,6 +108,16 @@ async function handleDelete(req: NextApiRequest, res: NextApiResponse) {
 
   if (!paymentId) return res.status(400).json({ error: 'ID es requerido' })
 
-  const payment = await paymentService.deletePayment(paymentId)
-  res.status(200).json(payment)
+  const paymentService = ServiceFactory.getPaymentService()
+  await paymentService.deletePayment(paymentId)
+  res.status(200).json({ message: 'Pago eliminado' })
+}
+
+function handleError(error: unknown, res: NextApiResponse) {
+  if (error instanceof Error) {
+    if (error.message.includes('es requerido') || error.message.includes('debe ser')) {
+      return res.status(400).json({ error: error.message })
+    }
+  }
+  res.status(500).json({ error: 'Error interno del servidor' })
 }

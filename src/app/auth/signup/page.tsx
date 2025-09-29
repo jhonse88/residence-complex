@@ -1,5 +1,5 @@
 import React from 'react'
-import SignUpForm from '../../components/SignUpForm'
+import SignUpForm from '../../../presentation/components/SignUpForm'
 import { Center, Text } from '@chakra-ui/react'
 import { Metadata } from 'next'
 
