@@ -13,7 +13,8 @@ import {
   MenuList,
   MenuItem,
   Card,
-  CardBody
+  CardBody,
+  HStack
 } from '@chakra-ui/react'
 import { HiArrowSmDown, HiUserAdd } from 'react-icons/hi'
 import { HiArrowRightOnRectangle } from 'react-icons/hi2'
@@ -21,6 +22,7 @@ import { VscSignIn } from 'react-icons/vsc'
 import { GrUserWorker } from 'react-icons/gr'
 import { useSession } from 'next-auth/react'
 import { LiaFileContractSolid } from 'react-icons/lia'
+import { HiDocumentReport } from 'react-icons/hi'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function Navbar({ initialSession }: { initialSession: any }) {
@@ -65,32 +67,47 @@ export default function Navbar({ initialSession }: { initialSession: any }) {
             </Box>
             {currentSession && currentSession.user?.email ? (
               <>
-                <Menu>
-                  <MenuButton
-                    as={Button}
-                    rightIcon={<HiArrowSmDown />}
-                    _hover={{ bg: 'gray.200' }}
-                    _expanded={{ bg: 'teal.300' }}
-                    _focus={{ boxShadow: 'dark-lg' }}>
-                    Interoperabilidad
-                  </MenuButton>
-                  <MenuList>
-                    <Link href='/tablets/suppliers'>
-                      <MenuItem>
-                        <GrUserWorker />
-                        <Box px={2} />
-                        Provedores
-                      </MenuItem>
-                    </Link>
-                    <Link href='/tablets/contracts'>
-                      <MenuItem>
-                        <LiaFileContractSolid />
-                        <Box px={2} />
-                        Contratos
-                      </MenuItem>
-                    </Link>
-                  </MenuList>
-                </Menu>
+                <HStack spacing={4}>
+                  <Link href='/tablets/suppliers'>
+                    <Button
+                      leftIcon={<GrUserWorker />}
+                      colorScheme="teal"
+                      variant="ghost"
+                      _hover={{ bg: 'gray.200' }}>
+                      Proveedores
+                    </Button>
+                  </Link>
+                  
+                  <Menu>
+                    <MenuButton
+                      as={Button}
+                      rightIcon={<HiArrowSmDown />}
+                      leftIcon={<LiaFileContractSolid />}
+                      colorScheme="teal"
+                      variant="ghost"
+                      _hover={{ bg: 'gray.200' }}
+                      _expanded={{ bg: 'teal.300' }}
+                      _focus={{ boxShadow: 'dark-lg' }}>
+                      Contratos
+                    </MenuButton>
+                    <MenuList>
+                      <Link href='/tablets/contracts'>
+                        <MenuItem>
+                          <LiaFileContractSolid />
+                          <Box px={2} />
+                          Gestión de Contratos
+                        </MenuItem>
+                      </Link>
+                      <Link href='/tablets/reports'>
+                        <MenuItem>
+                          <HiDocumentReport />
+                          <Box px={2} />
+                          Reportes de Pagos
+                        </MenuItem>
+                      </Link>
+                    </MenuList>
+                  </Menu>
+                </HStack>
                 <Spacer />
                 <Text>Bienvenido {currentSession.user?.email}</Text>
                 <ButtonGroup gap='2'>

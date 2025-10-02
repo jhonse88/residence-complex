@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-/* eslint-disable @typescript-eslint/no-unused-vars */
 'use client'
 import { useEffect, useState } from 'react'
 import axios from 'axios'
@@ -33,6 +31,12 @@ import { ContractResponseDto } from '../../application/dto/ContractDto'
 export default function ContractsTable() {
   const { status } = useSession()
   const { replace } = useRouter()
+  const [isClient, setIsClient] = useState(false)
+
+  // Evitar hidratación inconsistente
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
   const { isOpen: isOpenModalDelete, onOpen: onOpenModalDelete, onClose: onCloseModalDelete } = useDisclosure()
   const {
     isOpen: isOpenModalCreateEdit,
@@ -147,6 +151,15 @@ export default function ContractsTable() {
     GetContracts()
     GetSuppliers()
   }, [searchTerm])
+
+  // Mostrar loading mientras se hidrata
+  if (!isClient) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
+        <CircularProgress />
+      </div>
+    )
+  }
 
   if (status === 'unauthenticated') {
     replace('/')

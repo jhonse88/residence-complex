@@ -13,7 +13,6 @@ import {
 } from '@chakra-ui/react'
 import axios from 'axios'
 import { FC } from 'react'
-import React from 'react'
 
 interface Props {
   isOpen: boolean

@@ -7,6 +7,7 @@ import { SupplierService } from '../../application/services/SupplierService'
 import { ContractService } from '../../application/services/ContractService'
 import { PaymentService } from '../../application/services/PaymentService'
 import { PaymentBuilderService } from '../../application/services/PaymentBuilderService'
+import { ReportService } from '../../application/services/ReportService'
 
 export class ServiceFactory {
   private static prisma: PrismaClient
@@ -14,6 +15,7 @@ export class ServiceFactory {
   private static contractService: ContractService
   private static paymentService: PaymentService
   private static paymentBuilderService: PaymentBuilderService
+  private static reportService: ReportService
 
   static getPrismaClient(): PrismaClient {
     if (!this.prisma) {
@@ -57,6 +59,13 @@ export class ServiceFactory {
       this.paymentBuilderService = PaymentBuilderService.getInstance(paymentRepository)
     }
     return this.paymentBuilderService
+  }
+
+  static getReportService(): ReportService {
+    if (!this.reportService) {
+      this.reportService = ReportService.getInstance()
+    }
+    return this.reportService
   }
 
   static async disconnect(): Promise<void> {
