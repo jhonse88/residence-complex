@@ -30,27 +30,16 @@ import {
 import { HiDownload, HiCalendar, HiDocumentReport } from 'react-icons/hi'
 import axios from 'axios'
 import { WeeklyReportRequestDto } from '../../../application/dto/ReportDto'
-
-interface PaymentStatistics {
-  totalPayments: number
-  totalAmount: number
-  paymentsByMethod: Record<string, { count: number; total: number }>
-  paymentsBySupplier: Record<string, { count: number; total: number }>
-}
+import { WeeklyPaymentReportData } from '../../../shared/types/Report'
 
 export default function ReportsPage() {
   const [formData, setFormData] = useState<WeeklyReportRequestDto>({
     startDate: '',
-    endDate: '',
-    format: 'pdf',
-    includeCharts: false,
-    includeSummary: true,
-    customTitle: ''
+    endDate: ''
   })
   
   const [isGenerating, setIsGenerating] = useState(false)
-  const [isLoadingStats, setIsLoadingStats] = useState(false)
-  const [statistics, setStatistics] = useState<PaymentStatistics | null>(null)
+  const [reportData, setReportData] = useState<WeeklyPaymentReportData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [isClient, setIsClient] = useState(false)
@@ -83,34 +72,6 @@ export default function ReportsPage() {
     setError(null)
   }
 
-  const loadStatistics = async () => {
-    if (!formData.startDate || !formData.endDate) {
-      setError('Selecciona un rango de fechas válido')
-      return
-    }
-
-    setIsLoadingStats(true)
-    setError(null)
-    setMessage('Cargando estadísticas...')
-
-    try {
-      const response = await axios.get('/api/reports/statistics', {
-        params: {
-          startDate: formData.startDate,
-          endDate: formData.endDate
-        }
-      })
-
-      setStatistics(response.data)
-      setMessage('Estadísticas cargadas correctamente')
-    } catch (error) {
-      setError('Error cargando estadísticas')
-      setMessage('Error al cargar estadísticas')
-    } finally {
-      setIsLoadingStats(false)
-    }
-  }
-
   const generateReport = async () => {
     if (!formData.startDate || !formData.endDate) {
       setError('Selecciona un rango de fechas válido')
@@ -122,32 +83,14 @@ export default function ReportsPage() {
     setMessage('Generando reporte...')
 
     try {
-      const response = await axios.post('/api/reports/weekly-payments', formData, {
-        responseType: 'blob'
-      })
+      const response = await axios.post('/api/reports/weekly-payments', formData)
 
-      // Crear URL para descarga
-      const blob = new Blob([response.data], { 
-        type: response.headers['content-type'] 
-      })
-      const url = window.URL.createObjectURL(blob)
-      
-      // Obtener nombre del archivo del header
-      const contentDisposition = response.headers['content-disposition']
-      const filename = contentDisposition 
-        ? contentDisposition.split('filename=')[1]?.replace(/"/g, '')
-        : `reporte_pagos_${formData.startDate}_${formData.endDate}.${formData.format}`
-
-      // Crear enlace de descarga
-      const link = document.createElement('a')
-      link.href = url
-      link.download = filename
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
-
-      setMessage('Reporte generado y descargado exitosamente')
+      if (response.data.success) {
+        setReportData(response.data.data)
+        setMessage('Reporte generado exitosamente')
+      } else {
+        setError(response.data.error || 'Error generando el reporte')
+      }
     } catch (error) {
       console.error('Error generando reporte:', error)
       setError('Error generando el reporte')
@@ -185,7 +128,7 @@ export default function ReportsPage() {
             Generador de Reportes Semanales
           </Heading>
           <Text color="gray.600">
-            Genera reportes de pagos a proveedores en formato PDF o Excel
+            Genera reportes de pagos a proveedores en formato JSON
           </Text>
         </Box>
 
@@ -232,141 +175,73 @@ export default function ReportsPage() {
                   </FormControl>
                 </HStack>
 
-                {/* Formato */}
-                <FormControl>
-                  <FormLabel>Formato del Reporte</FormLabel>
-                  <Select
-                    value={formData.format}
-                    onChange={(e) => handleInputChange('format', e.target.value)}
-                  >
-                    <option value="pdf">PDF</option>
-                    <option value="excel">Excel (XLSX)</option>
-                  </Select>
-                </FormControl>
 
-                {/* Título personalizado */}
-                <FormControl>
-                  <FormLabel>Título Personalizado (Opcional)</FormLabel>
-                  <Input
-                    placeholder="Ej: Reporte de Pagos - Enero 2024"
-                    value={formData.customTitle}
-                    onChange={(e) => handleInputChange('customTitle', e.target.value)}
-                  />
-                </FormControl>
-
-                {/* Opciones */}
-                <VStack spacing={3} align="stretch">
-                  <Checkbox
-                    isChecked={formData.includeSummary}
-                    onChange={(e) => handleInputChange('includeSummary', e.target.checked)}
-                  >
-                    Incluir resumen ejecutivo
-                  </Checkbox>
-                  <Checkbox
-                    isChecked={formData.includeCharts}
-                    onChange={(e) => handleInputChange('includeCharts', e.target.checked)}
-                    isDisabled={true}
-                    opacity={0.5}
-                  >
-                    Incluir gráficos y estadísticas (próximamente)
-                  </Checkbox>
-                </VStack>
-
-                {/* Botones */}
-                <HStack spacing={4}>
-                  <Button
-                    colorScheme="blue"
-                    onClick={loadStatistics}
-                    isLoading={isLoadingStats}
-                    loadingText="Cargando..."
-                    leftIcon={<HiCalendar />}
-                    flex={1}
-                  >
-                    Ver Estadísticas
-                  </Button>
-                  <Button
-                    colorScheme="green"
-                    onClick={generateReport}
-                    isLoading={isGenerating}
-                    loadingText="Generando..."
-                    leftIcon={<HiDownload />}
-                    flex={1}
-                  >
-                    Generar Reporte
-                  </Button>
-                </HStack>
+                {/* Botón */}
+                <Button
+                  colorScheme="green"
+                  onClick={generateReport}
+                  isLoading={isGenerating}
+                  loadingText="Generando..."
+                  leftIcon={<HiDownload />}
+                  size="lg"
+                  width="100%"
+                >
+                  Generar Reporte JSON
+                </Button>
               </VStack>
             </CardBody>
           </Card>
 
-          {/* Estadísticas */}
+          {/* Reporte JSON */}
           <Card>
             <CardHeader>
-              <Heading size="md">Estadísticas del Período</Heading>
+              <Heading size="md">Reporte Generado</Heading>
             </CardHeader>
             <CardBody>
-              {isLoadingStats ? (
+              {isGenerating ? (
                 <VStack spacing={4}>
                   <Spinner size="lg" />
-                  <Text>Cargando estadísticas...</Text>
+                  <Text>Generando reporte...</Text>
                 </VStack>
-              ) : statistics ? (
+              ) : reportData ? (
                 <VStack spacing={4} align="stretch">
                   {/* Resumen general */}
                   <SimpleGrid columns={2} spacing={4}>
                     <Stat>
                       <StatLabel>Total Pagos</StatLabel>
-                      <StatNumber>{statistics.totalPayments}</StatNumber>
+                      <StatNumber>{reportData.totalPayments}</StatNumber>
                     </Stat>
                     <Stat>
                       <StatLabel>Monto Total</StatLabel>
                       <StatNumber fontSize="lg">
-                        {formatCurrency(statistics.totalAmount)}
+                        {formatCurrency(reportData.totalAmount)}
                       </StatNumber>
                     </Stat>
                   </SimpleGrid>
 
                   <Divider />
 
-                  {/* Por método de pago */}
+                  {/* JSON del reporte */}
                   <Box>
-                    <Text fontWeight="bold" mb={2}>Por Método de Pago</Text>
-                    <VStack spacing={2} align="stretch">
-                      {Object.entries(statistics.paymentsByMethod).map(([method, data]) => (
-                        <HStack key={method} justify="space-between">
-                          <Badge colorScheme="blue">{method}</Badge>
-                          <Text fontSize="sm">
-                            {data.count} pagos - {formatCurrency(data.total)}
-                          </Text>
-                        </HStack>
-                      ))}
-                    </VStack>
-                  </Box>
-
-                  <Divider />
-
-                  {/* Por proveedor */}
-                  <Box>
-                    <Text fontWeight="bold" mb={2}>Por Proveedor</Text>
-                    <VStack spacing={2} align="stretch" maxH="200px" overflowY="auto">
-                      {Object.entries(statistics.paymentsBySupplier).map(([supplier, data]) => (
-                        <HStack key={supplier} justify="space-between">
-                          <Text fontSize="sm" isTruncated maxW="150px">
-                            {supplier}
-                          </Text>
-                          <Text fontSize="sm">
-                            {data.count} - {formatCurrency(data.total)}
-                          </Text>
-                        </HStack>
-                      ))}
-                    </VStack>
+                    <Text fontWeight="bold" mb={2}>Datos del Reporte (JSON)</Text>
+                    <Box 
+                      bg="gray.50" 
+                      p={4} 
+                      borderRadius="md" 
+                      maxH="400px" 
+                      overflowY="auto"
+                      fontSize="sm"
+                      fontFamily="mono"
+                    >
+                      <pre>{JSON.stringify(reportData, null, 2)}</pre>
+                    </Box>
                   </Box>
                 </VStack>
               ) : (
                 <VStack spacing={4}>
-                  <HiCalendar size={32} color="gray" />
+                  <HiDocumentReport size={32} color="gray" />
                   <Text color="gray.500" textAlign="center">
-                    Haz clic en "Ver Estadísticas" para cargar los datos del período seleccionado
+                    Haz clic en "Generar Reporte JSON" para crear el reporte del período seleccionado
                   </Text>
                 </VStack>
               )}

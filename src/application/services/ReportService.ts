@@ -1,16 +1,10 @@
-import { ReportAdapter, ReportData, ReportOptions, WeeklyPaymentReport } from '../../shared/types/Report'
-import { PDFReportAdapter } from '../../infrastructure/adapters/PDFReportAdapter'
-import { ExcelReportAdapter } from '../../infrastructure/adapters/ExcelReportAdapter'
+import { WeeklyPaymentReport, WeeklyPaymentReportData, PaymentStatistics } from '../../shared/types/Report'
 import { PrismaClient } from '@prisma/client'
 
 export class ReportService {
   private static instance: ReportService
-  private adapters: Map<string, ReportAdapter>
 
-  private constructor() {
-    this.adapters = new Map()
-    this.initializeAdapters()
-  }
+  private constructor() {}
 
   public static getInstance(): ReportService {
     if (!ReportService.instance) {
@@ -19,55 +13,42 @@ export class ReportService {
     return ReportService.instance
   }
 
-  private initializeAdapters(): void {
-    // Registrar adaptadores disponibles
-    this.adapters.set('pdf', new PDFReportAdapter())
-    this.adapters.set('excel', new ExcelReportAdapter())
-    this.adapters.set('xlsx', new ExcelReportAdapter()) // Alias para Excel
-  }
-
   /**
-   * Genera un reporte semanal de pagos a proveedores
+   * Genera un reporte semanal de pagos a proveedores en formato JSON
    */
   async generateWeeklyPaymentReport(
     prisma: PrismaClient,
     startDate: Date,
-    endDate: Date,
-    options: ReportOptions
-  ): Promise<{ success: boolean; data?: Buffer; filename: string; mimeType: string; error?: string }> {
+    endDate: Date
+  ): Promise<{ success: boolean; data?: WeeklyPaymentReportData; error?: string }> {
     try {
       // Obtener datos de pagos del período especificado
       const payments = await this.getWeeklyPayments(prisma, startDate, endDate)
       
-      // Transformar datos a formato de reporte
-      const reportData = this.transformToReportData(payments, startDate, endDate)
+      // Generar estadísticas
+      const statistics = await this.getPaymentStatistics(prisma, startDate, endDate)
       
-      // Obtener el adaptador apropiado
-      const adapter = this.getAdapter(options.format)
-      if (!adapter) {
-        return {
-          success: false,
-          filename: '',
-          mimeType: '',
-          error: `Formato de reporte no soportado: ${options.format}`
-        }
+      // Crear el objeto de reporte completo
+      const reportData: WeeklyPaymentReportData = {
+        title: 'Reporte Semanal de Pagos a Proveedores',
+        period: {
+          startDate,
+          endDate
+        },
+        totalPayments: payments.length,
+        totalAmount: payments.reduce((sum, payment) => sum + payment.amount, 0),
+        payments: payments,
+        statistics: statistics,
+        generatedAt: new Date()
       }
-
-      // Generar el reporte usando el adaptador
-      const result = await adapter.generate(reportData, options)
       
       return {
-        success: result.success,
-        data: result.data as Buffer,
-        filename: result.filename,
-        mimeType: result.mimeType,
-        error: result.error
+        success: true,
+        data: reportData
       }
     } catch (error) {
       return {
         success: false,
-        filename: '',
-        mimeType: '',
         error: error instanceof Error ? error.message : 'Error desconocido generando reporte'
       }
     }
@@ -128,49 +109,6 @@ export class ReportService {
     }
   }
 
-  /**
-   * Transforma los datos de pagos al formato requerido por los adaptadores
-   */
-  private transformToReportData(
-    payments: WeeklyPaymentReport[],
-    startDate: Date,
-    endDate: Date
-  ): ReportData {
-    const totalAmount = payments.reduce((sum, payment) => sum + payment.amount, 0)
-    
-    return {
-      title: 'Reporte Semanal de Pagos a Proveedores',
-      period: {
-        startDate,
-        endDate
-      },
-      totalPayments: payments.length,
-      totalAmount,
-      payments: payments || [], // Asegurar que siempre sea un array
-      generatedAt: new Date()
-    }
-  }
-
-  /**
-   * Obtiene el adaptador apropiado para el formato especificado
-   */
-  private getAdapter(format: string): ReportAdapter | undefined {
-    return this.adapters.get(format.toLowerCase())
-  }
-
-  /**
-   * Obtiene los formatos de reporte disponibles
-   */
-  getAvailableFormats(): string[] {
-    return Array.from(this.adapters.keys())
-  }
-
-  /**
-   * Registra un nuevo adaptador de reporte
-   */
-  registerAdapter(format: string, adapter: ReportAdapter): void {
-    this.adapters.set(format.toLowerCase(), adapter)
-  }
 
   /**
    * Obtiene estadísticas de pagos para un período
@@ -179,12 +117,7 @@ export class ReportService {
     prisma: PrismaClient,
     startDate: Date,
     endDate: Date
-  ): Promise<{
-    totalPayments: number
-    totalAmount: number
-    paymentsByMethod: Record<string, { count: number; total: number }>
-    paymentsBySupplier: Record<string, { count: number; total: number }>
-  }> {
+  ): Promise<PaymentStatistics> {
     try {
       const payments = await this.getWeeklyPayments(prisma, startDate, endDate)
       

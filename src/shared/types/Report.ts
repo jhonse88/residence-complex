@@ -14,7 +14,14 @@ export interface WeeklyPaymentReport {
   remainingDebt: number
 }
 
-export interface ReportData {
+export interface PaymentStatistics {
+  totalPayments: number
+  totalAmount: number
+  paymentsByMethod: Record<string, { count: number; total: number }>
+  paymentsBySupplier: Record<string, { count: number; total: number }>
+}
+
+export interface WeeklyPaymentReportData {
   title: string
   period: {
     startDate: Date
@@ -23,25 +30,6 @@ export interface ReportData {
   totalPayments: number
   totalAmount: number
   payments: WeeklyPaymentReport[]
+  statistics: PaymentStatistics
   generatedAt: Date
-}
-
-export interface ReportOptions {
-  format: 'pdf' | 'excel'
-  includeCharts?: boolean
-  includeSummary?: boolean
-  customTitle?: string
-}
-
-export interface ReportResult {
-  success: boolean
-  data?: Buffer | string
-  filename: string
-  mimeType: string
-  error?: string
-}
-
-export interface ReportAdapter {
-  generate(data: ReportData, options: ReportOptions): Promise<ReportResult>
-  getSupportedFormats(): string[]
 }
