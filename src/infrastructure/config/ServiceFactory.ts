@@ -8,6 +8,7 @@ import { ContractService } from '../../application/services/ContractService'
 import { PaymentService } from '../../application/services/PaymentService'
 import { PaymentBuilderService } from '../../application/services/PaymentBuilderService'
 import { ReportService } from '../../application/services/ReportService'
+import { DecoratedServiceFactory } from '../../application/decorators/DecoratedServiceFactory'
 
 export class ServiceFactory {
   private static prisma: PrismaClient
@@ -66,6 +67,28 @@ export class ServiceFactory {
       this.reportService = ReportService.getInstance()
     }
     return this.reportService
+  }
+
+  /**
+   * Obtiene el servicio de proveedores decorado con funcionalidades adicionales
+   * (logging, validación, caché, manejo de errores)
+   */
+  static getDecoratedSupplierService() {
+    return DecoratedServiceFactory.getDecoratedSupplierService()
+  }
+
+  /**
+   * Obtiene estadísticas de caché del servicio de proveedores decorado
+   */
+  static getSupplierCacheStats() {
+    return DecoratedServiceFactory.getCacheStats()
+  }
+
+  /**
+   * Limpia el caché del servicio de proveedores decorado
+   */
+  static clearSupplierCache() {
+    DecoratedServiceFactory.clearCache()
   }
 
   static async disconnect(): Promise<void> {

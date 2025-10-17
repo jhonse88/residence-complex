@@ -51,11 +51,11 @@ const CreateEditSupplierModal: FC<Props> = ({
 
   // Esquema de validación
   const supplierSchema = Joi.object({
-    Name: Joi.string().max(256).required().messages({
+    name: Joi.string().max(256).required().messages({
       'string.max': 'El nombre no puede tener más de 256 caracteres.',
       'string.empty': 'El nombre es obligatorio.'
     }),
-    Phone: Joi.string()
+    phone: Joi.string()
       .pattern(/^[0-9]+$/)
       .length(10)
       .required()
@@ -64,22 +64,22 @@ const CreateEditSupplierModal: FC<Props> = ({
         'string.length': 'El teléfono debe tener exactamente 10 dígitos.',
         'string.empty': 'El teléfono es obligatorio.'
       }),
-    Email: Joi.string()
+    email: Joi.string()
       .email({ tlds: { allow: false } })
       .max(100)
       .messages({
         'string.email': 'Por favor ingrese un correo electrónico válido.',
         'string.max': 'El correo no puede exceder los 100 caracteres.'
       }),
-    State: Joi.boolean().default(true)
+    state: Joi.boolean().default(true)
   })
 
   const validateForm = () => {
     const validationData = {
-      Name: supplier.name,
-      Phone: supplier.phone,
-      Email: supplier.email,
-      State: supplier.state
+      name: supplier.name,
+      phone: supplier.phone,
+      email: supplier.email,
+      state: supplier.state
     }
 
     const { error } = supplierSchema.validate(validationData, {
@@ -196,46 +196,46 @@ const CreateEditSupplierModal: FC<Props> = ({
         <ModalCloseButton />
         <ModalBody>
           <SimpleGrid columns={1} spacingY='20px'>
-            <FormControl isInvalid={!!errors.Name} isRequired>
-              <FormLabel htmlFor='Name'>Nombre</FormLabel>
+            <FormControl isInvalid={!!errors.name} isRequired>
+              <FormLabel htmlFor='name'>Nombre</FormLabel>
               <Input
-                id='Name'
-                name='Name'
+                id='name'
+                name='name'
                 value={supplier.name}
                 onChange={handleChange}
                 focusBorderColor='lime'
                 variant='filled'
                 type='text'
               />
-              <FormErrorMessage>{errors.Name}</FormErrorMessage>
+              <FormErrorMessage>{errors.name}</FormErrorMessage>
             </FormControl>
 
-            <FormControl isInvalid={!!errors.Phone} isRequired>
-              <FormLabel htmlFor='Phone'>Teléfono</FormLabel>
+            <FormControl isInvalid={!!errors.phone} isRequired>
+              <FormLabel htmlFor='phone'>Teléfono</FormLabel>
               <Input
-                id='Phone'
-                name='Phone'
+                id='phone'
+                name='phone'
                 value={supplier.phone}
                 onChange={handleChange}
                 focusBorderColor='lime'
                 variant='filled'
                 type='text'
               />
-              <FormErrorMessage>{errors.Phone}</FormErrorMessage>
+              <FormErrorMessage>{errors.phone}</FormErrorMessage>
             </FormControl>
 
-            <FormControl isInvalid={!!errors.Email}>
-              <FormLabel htmlFor='Email'>Correo electrónico</FormLabel>
+            <FormControl isInvalid={!!errors.email}>
+              <FormLabel htmlFor='email'>Correo electrónico</FormLabel>
               <Input
-                id='Email'
-                name='Email'
+                id='email'
+                name='email'
                 value={supplier.email}
                 onChange={handleChange}
                 focusBorderColor='lime'
                 variant='filled'
                 type='email'
               />
-              <FormErrorMessage>{errors.Email}</FormErrorMessage>
+              <FormErrorMessage>{errors.email}</FormErrorMessage>
             </FormControl>
           </SimpleGrid>
         </ModalBody>
