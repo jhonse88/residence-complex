@@ -121,10 +121,27 @@ export default function ReportsPage() {
     setError(null)
     setMessage('Generando reporte...')
 
+    // Log en el cliente
+    console.log('🟢 CLIENTE: Enviando petición de reporte mejorado')
+    console.log('🟢 Datos:', formData)
+
     try {
-      const response = await axios.post('/api/reports/weekly-payments', formData, {
-        responseType: 'blob'
+      // Usar el endpoint mejorado con State + Adapter
+      const response = await axios.post('/api/reports/enhanced-weekly-payments', {
+        ...formData,
+        userType: 'basic_user' // Puedes hacerlo dinámico según el usuario logueado
+      }, {
+        responseType: 'blob' // Importante: recibir como blob para descargar
       })
+
+      console.log('🟢 CLIENTE: Respuesta recibida (blob)')
+      
+      // Obtener información del estado desde los headers
+      const reportState = response.headers['x-report-state'] || 'Unknown'
+      const estimatedTime = response.headers['x-report-estimated-time'] || '0'
+      
+      console.log('🟢 Estado del reporte:', reportState)
+      console.log('🟢 Tiempo estimado:', estimatedTime, 'ms')
 
       // Crear URL para descarga
       const blob = new Blob([response.data], { 
@@ -138,6 +155,8 @@ export default function ReportsPage() {
         ? contentDisposition.split('filename=')[1]?.replace(/"/g, '')
         : `reporte_pagos_${formData.startDate}_${formData.endDate}.${formData.format}`
 
+      console.log('🟢 Archivo a descargar:', filename)
+
       // Crear enlace de descarga
       const link = document.createElement('a')
       link.href = url
@@ -147,11 +166,28 @@ export default function ReportsPage() {
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
 
-      setMessage('Reporte generado y descargado exitosamente')
-    } catch (error) {
-      console.error('Error generando reporte:', error)
-      setError('Error generando el reporte')
-      setMessage('Error al generar el reporte')
+      setMessage(`Reporte generado y descargado exitosamente. Estado: ${reportState}`)
+    } catch (error: any) {
+      console.error('🟢 CLIENTE: Error en la petición:', error)
+      
+      // Si el error tiene un mensaje JSON, intentar parsearlo
+      if (error.response?.data instanceof Blob) {
+        const reader = new FileReader()
+        reader.onload = () => {
+          try {
+            const errorData = JSON.parse(reader.result as string)
+            setError(errorData.error || 'Error generando el reporte')
+            setMessage(`Error: ${errorData.error || 'Error al generar el reporte'}`)
+          } catch {
+            setError('Error generando el reporte')
+            setMessage('Error al generar el reporte')
+          }
+        }
+        reader.readAsText(error.response.data)
+      } else {
+        setError(error.response?.data?.error || 'Error generando el reporte')
+        setMessage('Error al generar el reporte')
+      }
     } finally {
       setIsGenerating(false)
     }
